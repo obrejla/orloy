@@ -1,0 +1,25 @@
+[Unit]
+Description=Motor Controller Application
+# Start after networking and Bluetooth are available
+After=network.target bluetooth.target
+Wants=bluetooth.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/motor_app
+
+# Activate the virtual environment, then run main.py
+ExecStart=/home/pi/motor_app/venv/bin/python /home/pi/motor_app/main.py
+
+# Restart automatically on crash (not on intentional shutdown)
+Restart=on-failure
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=motor_app
+
+[Install]
+WantedBy=multi-user.target

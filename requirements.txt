@@ -1,0 +1,4 @@
+gpiozero>=2.0
+RPi.GPIO>=0.7.1
+bluedot>=1.1.1
+pytest>=7.0
