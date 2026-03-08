@@ -5,7 +5,7 @@ Motor controller – entry point.
 Run directly:
     python main.py
 
-Or via systemd service (see motor_app.service).
+Or via systemd service (see orloy_app.service).
 """
 
 import logging
@@ -34,7 +34,7 @@ def _configure_logging() -> None:
         format="%(asctime)s  %(name)-30s  %(levelname)-8s  %(message)s",
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler("/var/log/motor_app.log"),
+            logging.FileHandler("/var/log/orloy_app.log"),
         ],
     )
 

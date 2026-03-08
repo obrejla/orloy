@@ -107,10 +107,10 @@ After the first pairing the phone will reconnect automatically.
 
 ```bash
 # Clone / copy the project to the Pi
-scp -r . pi@raspberrypi.local:/home/pi/motor_app
+scp -r . pi@raspberrypi.local:/home/pi/orloy_app
 
 # On the Pi:
-cd /home/pi/motor_app
+cd /home/pi/orloy_app
 python3 -m venv venv
 venv/bin/pip install -r requirements.txt
 ```
@@ -118,8 +118,8 @@ venv/bin/pip install -r requirements.txt
 ### 5. Create the log file with correct permissions
 
 ```bash
-sudo touch /var/log/motor_app.log
-sudo chown pi:pi /var/log/motor_app.log
+sudo touch /var/log/orloy_app.log
+sudo chown pi:pi /var/log/orloy_app.log
 ```
 
 ### 6. Allow the `pi` user to call `shutdown` without a password
@@ -137,17 +137,17 @@ pi ALL=(ALL) NOPASSWD: /sbin/shutdown
 ### 7. Install and enable the systemd service
 
 ```bash
-sudo cp /home/pi/motor_app/motor_app.service /etc/systemd/system/
+sudo cp /home/pi/orloy_app/orloy_app.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable motor_app.service
-sudo systemctl start motor_app.service
+sudo systemctl enable orloy_app.service
+sudo systemctl start orloy_app.service
 ```
 
 Check status:
 
 ```bash
-sudo systemctl status motor_app.service
-journalctl -u motor_app.service -f
+sudo systemctl status orloy_app.service
+journalctl -u orloy_app.service -f
 ```
 
 The service will now start automatically on every boot.
@@ -169,7 +169,7 @@ python -m pytest tests/ -v
 ## Project structure
 
 ```
-motor_app/
+orloy_app/
 ├── src/
 │   ├── config.py             # GPIO pin constants & timing defaults
 │   ├── motor_controller.py   # Thin wrapper around gpiozero.Motor
@@ -182,6 +182,6 @@ motor_app/
 │   ├── test_gpio_handler.py
 │   └── test_bluetooth_handler.py
 ├── main.py                   # Application entry point
-├── motor_app.service         # systemd unit file
+├── orloy_app.service         # systemd unit file
 └── requirements.txt
 ```
