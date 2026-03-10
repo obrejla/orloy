@@ -35,7 +35,7 @@ Web (HTTP)    ──┘
 - **`ModeManager`** (`src/mode_manager.py`) is the single source of truth for state (IDLE / RANDOM / MANUAL). It is thread-safe (`threading.Lock`). The random loop runs in a daemon thread and uses `threading.Event.wait()` so it wakes immediately when stopped.
 - **`GPIOHandler`** (`src/gpio_handler.py`) wires `gpiozero.Button` callbacks → `ModeManager`. It owns the shared `gearbox_output` (`OutputDevice`) as a public attribute so `BluetoothHandler` and `WebHandler` can reuse it.
 - **`BluetoothHandler`** (`src/bluetooth_handler.py`) wires BlueDot touch zones → the same `ModeManager` methods and the same `gearbox_output`. Shutdown hold is implemented with `threading.Timer`.
-- **`WebHandler`** (`src/web_handler.py`) serves an embedded HTML control panel and a REST API over HTTP (default port 8080). Runs a Werkzeug server in a daemon thread. Shutdown hold is implemented client-side in JavaScript.
+- **`WebHandler`** (`src/web_handler.py`) serves `src/index.html` and a REST API over HTTP (default port 8080). Runs a Werkzeug server in a daemon thread. Shutdown hold is implemented client-side in JavaScript.
 - **`MotorController`** (`src/motor_controller.py`) is a thin wrapper around `gpiozero.Motor` to make it easily mockable.
 - **`config.py`** (`src/config.py`) holds all GPIO pin numbers, timing constants, and web server settings (`WEB_HOST`, `WEB_PORT`).
 

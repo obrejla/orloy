@@ -379,7 +379,8 @@ orloy_app/
 │   ├── mode_manager.py       # Random / Manual mode state machine
 │   ├── gpio_handler.py       # Physical GPIO button callbacks
 │   ├── bluetooth_handler.py  # BlueDot Bluetooth interface
-│   └── web_handler.py        # HTTP control panel (Flask/Werkzeug)
+│   ├── web_handler.py        # HTTP control panel (Flask/Werkzeug)
+│   └── index.html            # Browser UI served by web_handler
 ├── tests/
 │   ├── test_motor_controller.py
 │   ├── test_mode_manager.py
