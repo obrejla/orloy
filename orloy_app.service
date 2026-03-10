@@ -1,5 +1,5 @@
 [Unit]
-Description=Motor Controller Application
+Description=Orloy App
 # Start after networking and Bluetooth are available
 After=network.target bluetooth.target
 Wants=bluetooth.target
