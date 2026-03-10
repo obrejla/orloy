@@ -280,10 +280,10 @@ sudo apt install -y python3-pip python3-venv bluetooth bluez
 
 > `hostapd` and `dnsmasq` are only needed for the Option C fallback AP setup — see the [Wi-Fi access point setup](#wi-fi-access-point-setup) section above.
 
-### 2. Add the `pi` user to required groups
+### 2. Add the `david` user to required groups
 
 ```bash
-sudo usermod -aG gpio,bluetooth pi
+sudo usermod -aG gpio,bluetooth david
 ```
 
 Log out and back in (or reboot) for group changes to take effect.
@@ -310,10 +310,10 @@ After the first pairing the phone will reconnect automatically.
 
 ```bash
 # Clone / copy the project to the Pi
-scp -r . pi@raspberrypi.local:/home/pi/orloy_app
+scp -r . david@raspberrypi.local:/home/david/orloy_app
 
 # On the Pi:
-cd /home/pi/orloy_app
+cd /home/david/orloy_app
 python3 -m venv venv
 venv/bin/pip install -r requirements.txt
 ```
@@ -322,10 +322,10 @@ venv/bin/pip install -r requirements.txt
 
 ```bash
 sudo touch /var/log/orloy_app.log
-sudo chown pi:pi /var/log/orloy_app.log
+sudo chown david:david /var/log/orloy_app.log
 ```
 
-### 6. Allow the `pi` user to call `shutdown` without a password
+### 6. Allow the `david` user to call `shutdown` without a password
 
 ```bash
 sudo visudo
@@ -334,13 +334,13 @@ sudo visudo
 Add this line at the end:
 
 ```
-pi ALL=(ALL) NOPASSWD: /sbin/shutdown
+david ALL=(ALL) NOPASSWD: /sbin/shutdown
 ```
 
 ### 7. Install and enable the systemd service
 
 ```bash
-sudo cp /home/pi/orloy_app/orloy_app.service /etc/systemd/system/
+sudo cp /home/david/orloy_app/orloy_app.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable orloy_app.service
 sudo systemctl start orloy_app.service
