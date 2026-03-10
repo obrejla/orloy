@@ -48,11 +48,12 @@ Pressing **Random** while manual mode is active stops manual mode first.
 
 ## Web control panel
 
-When the application starts it binds a small HTTP server on **port 8080** (all interfaces).  Connect to the **Orloy** Wi-Fi network broadcast by the Pi (see [Wi-Fi access point setup](#wi-fi-access-point-setup) below) and open:
+When the application starts it binds a small HTTP server on **port 8080** (all interfaces).  Connect to the **Orloy** Wi-Fi network broadcast by the Pi (see [Wi-Fi access point setup](#wi-fi-access-point-setup) below) and open the URL that matches your AP setup method:
 
-```
-http://192.168.4.1:8080/
-```
+| AP setup method | URL |
+|---|---|
+| Option A / B (NetworkManager) | `http://10.42.0.1:8080/` |
+| Option C (hostapd/dnsmasq) | `http://192.168.4.1:8080/` |
 
 The page displays the current mode (IDLE / RANDOM / MANUAL) and four control buttons:
 
@@ -100,6 +101,9 @@ Raspberry Pi OS Bookworm uses NetworkManager, which has built-in hotspot support
 
 NetworkManager writes and manages the configuration automatically.  The hotspot starts immediately and reconnects on every subsequent boot — no further steps required.
 
+**Pi's IP on this network:** `10.42.0.1`
+**Connect via:** `http://10.42.0.1:8080/` or `http://raspberrypi.local:8080/` (if avahi-daemon is running)
+
 ---
 
 ### Option B — `nmcli` one-liner *(Raspberry Pi OS Bookworm, headless/Lite)*
@@ -130,6 +134,9 @@ sudo reboot
 # After reboot:
 nmcli connection show --active
 ```
+
+**Pi's IP on this network:** `10.42.0.1`
+**Connect via:** `http://10.42.0.1:8080/` or `http://raspberrypi.local:8080/` (if avahi-daemon is running)
 
 ---
 
@@ -217,23 +224,24 @@ sudo systemctl status hostapd
 sudo systemctl status dnsmasq
 ```
 
+**Pi's IP on this network:** `192.168.4.1`
+**Connect via:** `http://192.168.4.1:8080/` or `http://orloy.local:8080/` (resolved by dnsmasq for all DHCP clients)
+
 ---
 
 ### Connecting from a phone or laptop
 
 1. Open **Wi-Fi settings** and select the network **Orloy**.
 2. Enter the password: `orloy1234`
-3. Open a browser and go to:
+3. Open a browser and use the URL for your AP setup method:
 
-```
-http://192.168.4.1:8080/
-```
+| AP setup | IP-based URL | Hostname-based URL |
+|---|---|---|
+| Option A / B (NetworkManager) | `http://10.42.0.1:8080/` | `http://raspberrypi.local:8080/` ¹ |
+| Option C (hostapd/dnsmasq) | `http://192.168.4.1:8080/` | `http://orloy.local:8080/` ² |
 
-Alternatively, if your device honours the dnsmasq DNS (all DHCP clients automatically do):
-
-```
-http://orloy.local:8080/
-```
+¹ Requires avahi-daemon on the Pi (pre-installed on Raspberry Pi OS with Desktop).  Windows clients also need the Bonjour service.
+² Resolved by dnsmasq for all DHCP clients automatically; no extra software needed.
 
 > **Note:** The Orloy network has no internet access — it only connects your device to the Pi.  Some phones show a "no internet" warning and may silently switch to mobile data.  If the page does not load, check that your device stayed on the Orloy network (disable "auto-switch to mobile data" if prompted).
 

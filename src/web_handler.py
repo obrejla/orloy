@@ -21,7 +21,7 @@ import threading
 
 from flask import Flask, Response, jsonify
 
-from src.config import WEB_AP_IP, WEB_HOST, WEB_PORT
+from src.config import WEB_AP_IP_HOSTAPD, WEB_AP_IP_NM, WEB_HOST, WEB_PORT
 
 logger = logging.getLogger(__name__)
 
@@ -328,10 +328,12 @@ class WebHandler:
             )
             self._thread.start()
             logger.info(
-                "Web handler ready – connect to the 'Orloy' Wi-Fi network and open "
-                "http://%s:%d/ in a browser",
-                WEB_AP_IP,
+                "Web handler ready on port %d – "
+                "NetworkManager AP: http://%s:%d/ or http://raspberrypi.local:%d/ | "
+                "hostapd AP: http://%s:%d/ or http://orloy.local:%d/",
                 port,
+                WEB_AP_IP_NM, port, port,
+                WEB_AP_IP_HOSTAPD, port, port,
             )
 
     # ------------------------------------------------------------------ #
