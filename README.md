@@ -82,7 +82,62 @@ The page polls `/api/status` every 2 seconds so the mode indicator stays in sync
 
 The Raspberry Pi is configured as a **standalone Wi-Fi access point** — it broadcasts its own network named **Orloy** so no external router is needed.  Once the AP is set up the Pi always creates the network on boot; you connect your phone or laptop to it and open the control panel URL.
 
-### 1. Install packages
+Three methods are described below.  Use whichever matches your OS version and setup.
+
+---
+
+### Option A — Desktop GUI *(preferred, Raspberry Pi OS Bookworm with Desktop)*
+
+Raspberry Pi OS Bookworm uses NetworkManager, which has built-in hotspot support accessible from the taskbar.
+
+1. Click the **network icon** in the taskbar (top-right corner).
+2. Select **Advanced Options → Create Wireless Hotspot…**
+3. Fill in the form:
+   - **SSID:** `Orloy`
+   - **Security:** WPA2
+   - **Password:** `orloy1234`
+4. Click **Create**.
+
+NetworkManager writes and manages the configuration automatically.  The hotspot starts immediately and reconnects on every subsequent boot — no further steps required.
+
+---
+
+### Option B — `nmcli` one-liner *(Raspberry Pi OS Bookworm, headless/Lite)*
+
+If there is no desktop available but the OS is still Bookworm (NetworkManager present), use the command line:
+
+```bash
+sudo nmcli device wifi hotspot \
+    ifname wlan0 \
+    ssid Orloy \
+    password orloy1234
+```
+
+Make the hotspot start automatically on boot:
+
+```bash
+# List connections to find the name NetworkManager assigned (usually "Hotspot")
+nmcli connection show
+
+# Enable autoconnect (replace "Hotspot" with the actual name if different)
+sudo nmcli connection modify Hotspot connection.autoconnect yes
+```
+
+Reboot to verify:
+
+```bash
+sudo reboot
+# After reboot:
+nmcli connection show --active
+```
+
+---
+
+### Option C — `hostapd` + `dnsmasq` *(fallback for Raspberry Pi OS Bullseye and older)*
+
+Use this method only if the OS pre-dates Bookworm or NetworkManager is not available.
+
+#### C.1 Install packages
 
 ```bash
 sudo apt update
@@ -90,7 +145,7 @@ sudo apt install -y hostapd dnsmasq
 sudo systemctl stop hostapd dnsmasq
 ```
 
-### 2. Assign a static IP to `wlan0`
+#### C.2 Assign a static IP to `wlan0`
 
 Append the following to `/etc/dhcpcd.conf`:
 
@@ -100,7 +155,7 @@ interface wlan0
     nohook wpa_supplicant
 ```
 
-### 3. Configure DHCP server (dnsmasq)
+#### C.3 Configure DHCP server (dnsmasq)
 
 Back up the default config and create a new one:
 
@@ -118,9 +173,9 @@ domain=local
 address=/orloy.local/192.168.4.1
 ```
 
-The last line makes `orloy.local` resolve to the Pi for every client that receives an IP from dnsmasq, so the hostname can be used instead of the raw IP.
+The last line makes `orloy.local` resolve to the Pi for every DHCP client, so the hostname can be used instead of the raw IP.
 
-### 4. Configure the access point (hostapd)
+#### C.4 Configure the access point (hostapd)
 
 Create `/etc/hostapd/hostapd.conf`:
 
@@ -141,13 +196,13 @@ wpa_pairwise=TKIP
 rsn_pairwise=CCMP
 ```
 
-Then tell hostapd where the config file is.  Edit `/etc/default/hostapd` and set:
+Tell hostapd where the config file is — edit `/etc/default/hostapd` and set:
 
 ```
 DAEMON_CONF="/etc/hostapd/hostapd.conf"
 ```
 
-### 5. Enable services and reboot
+#### C.5 Enable services and reboot
 
 ```bash
 sudo systemctl unmask hostapd
@@ -155,9 +210,7 @@ sudo systemctl enable hostapd dnsmasq
 sudo reboot
 ```
 
-After the reboot the Pi broadcasts the **Orloy** network automatically on every boot.
-
-Verify:
+Verify after reboot:
 
 ```bash
 sudo systemctl status hostapd
@@ -214,10 +267,10 @@ The large dot is divided into four zones:
 
 ```bash
 sudo apt update
-sudo apt install -y python3-pip python3-venv bluetooth bluez hostapd dnsmasq
+sudo apt install -y python3-pip python3-venv bluetooth bluez
 ```
 
-(`hostapd` and `dnsmasq` are needed for the Wi-Fi access point — see the [Wi-Fi access point setup](#wi-fi-access-point-setup) section above for full configuration steps.)
+> `hostapd` and `dnsmasq` are only needed for the Option C fallback AP setup — see the [Wi-Fi access point setup](#wi-fi-access-point-setup) section above.
 
 ### 2. Add the `pi` user to required groups
 
