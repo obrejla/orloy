@@ -8,10 +8,10 @@ Wants=bluetooth.target
 Type=simple
 User=david
 Group=david
-WorkingDirectory=/home/david/orloy_app
+WorkingDirectory=/home/david/Projects/orloy_app
 
 # Activate the virtual environment, then run main.py
-ExecStart=/home/david/orloy_app/venv/bin/python /home/david/orloy_app/main.py
+ExecStart=/home/david/Projects/orloy_app/venv/bin/python /home/david/Projects/orloy_app/main.py
 
 # Restart automatically on crash (not on intentional shutdown)
 Restart=on-failure
