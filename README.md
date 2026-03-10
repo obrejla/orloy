@@ -48,10 +48,10 @@ Pressing **Random** while manual mode is active stops manual mode first.
 
 ## Web control panel
 
-When the application starts it binds a small HTTP server on **port 8080** (all interfaces).  Connect your phone or laptop to the same Wi-Fi network as the Pi and open:
+When the application starts it binds a small HTTP server on **port 8080** (all interfaces).  Connect to the **Orloy** Wi-Fi network broadcast by the Pi (see [Wi-Fi access point setup](#wi-fi-access-point-setup) below) and open:
 
 ```
-http://<Pi's IP address>:8080/
+http://192.168.4.1:8080/
 ```
 
 The page displays the current mode (IDLE / RANDOM / MANUAL) and four control buttons:
@@ -75,6 +75,114 @@ The page polls `/api/status` every 2 seconds so the mode indicator stays in sync
 | POST   | `/api/gearbox/on`     | Drive gearbox output HIGH                     |
 | POST   | `/api/gearbox/off`    | Drive gearbox output LOW                      |
 | POST   | `/api/shutdown`       | Trigger `sudo shutdown -h now`                |
+
+---
+
+## Wi-Fi access point setup
+
+The Raspberry Pi is configured as a **standalone Wi-Fi access point** — it broadcasts its own network named **Orloy** so no external router is needed.  Once the AP is set up the Pi always creates the network on boot; you connect your phone or laptop to it and open the control panel URL.
+
+### 1. Install packages
+
+```bash
+sudo apt update
+sudo apt install -y hostapd dnsmasq
+sudo systemctl stop hostapd dnsmasq
+```
+
+### 2. Assign a static IP to `wlan0`
+
+Append the following to `/etc/dhcpcd.conf`:
+
+```
+interface wlan0
+    static ip_address=192.168.4.1/24
+    nohook wpa_supplicant
+```
+
+### 3. Configure DHCP server (dnsmasq)
+
+Back up the default config and create a new one:
+
+```bash
+sudo mv /etc/dnsmasq.conf /etc/dnsmasq.conf.orig
+sudo nano /etc/dnsmasq.conf
+```
+
+Paste the following:
+
+```
+interface=wlan0
+dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
+domain=local
+address=/orloy.local/192.168.4.1
+```
+
+The last line makes `orloy.local` resolve to the Pi for every client that receives an IP from dnsmasq, so the hostname can be used instead of the raw IP.
+
+### 4. Configure the access point (hostapd)
+
+Create `/etc/hostapd/hostapd.conf`:
+
+```
+interface=wlan0
+driver=nl80211
+ssid=Orloy
+hw_mode=g
+channel=6
+wmm_enabled=0
+macaddr_acl=0
+auth_algs=1
+ignore_broadcast_ssid=0
+wpa=2
+wpa_passphrase=orloy1234
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP
+rsn_pairwise=CCMP
+```
+
+Then tell hostapd where the config file is.  Edit `/etc/default/hostapd` and set:
+
+```
+DAEMON_CONF="/etc/hostapd/hostapd.conf"
+```
+
+### 5. Enable services and reboot
+
+```bash
+sudo systemctl unmask hostapd
+sudo systemctl enable hostapd dnsmasq
+sudo reboot
+```
+
+After the reboot the Pi broadcasts the **Orloy** network automatically on every boot.
+
+Verify:
+
+```bash
+sudo systemctl status hostapd
+sudo systemctl status dnsmasq
+```
+
+---
+
+### Connecting from a phone or laptop
+
+1. Open **Wi-Fi settings** and select the network **Orloy**.
+2. Enter the password: `orloy1234`
+3. Open a browser and go to:
+
+```
+http://192.168.4.1:8080/
+```
+
+Alternatively, if your device honours the dnsmasq DNS (all DHCP clients automatically do):
+
+```
+http://orloy.local:8080/
+```
+
+> **Note:** The Orloy network has no internet access — it only connects your device to the Pi.  Some phones show a "no internet" warning and may silently switch to mobile data.  If the page does not load, check that your device stayed on the Orloy network (disable "auto-switch to mobile data" if prompted).
 
 ---
 
@@ -106,8 +214,10 @@ The large dot is divided into four zones:
 
 ```bash
 sudo apt update
-sudo apt install -y python3-pip python3-venv bluetooth bluez
+sudo apt install -y python3-pip python3-venv bluetooth bluez hostapd dnsmasq
 ```
+
+(`hostapd` and `dnsmasq` are needed for the Wi-Fi access point — see the [Wi-Fi access point setup](#wi-fi-access-point-setup) section above for full configuration steps.)
 
 ### 2. Add the `pi` user to required groups
 

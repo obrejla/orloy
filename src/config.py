@@ -16,8 +16,9 @@ GEARBOX_OUTPUT_PIN = 5
 SHUTDOWN_HOLD_TIME = 3.0
 
 # Web control panel
-WEB_HOST = "0.0.0.0"
+WEB_HOST = "0.0.0.0"   # bind on all interfaces
 WEB_PORT = 8080
+WEB_AP_IP = "192.168.4.1"   # static IP assigned to the Pi's access point
 
 # Random mode timing bounds
 RANDOM_MOVE_MIN_SEC = 5.0
