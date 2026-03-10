@@ -6,12 +6,12 @@ Wants=bluetooth.target
 
 [Service]
 Type=simple
-User=pi
-Group=pi
-WorkingDirectory=/home/pi/orloy_app
+User=david
+Group=david
+WorkingDirectory=/home/david/orloy_app
 
 # Activate the virtual environment, then run main.py
-ExecStart=/home/pi/orloy_app/venv/bin/python /home/pi/orloy_app/main.py
+ExecStart=/home/david/orloy_app/venv/bin/python /home/david/orloy_app/main.py
 
 # Restart automatically on crash (not on intentional shutdown)
 Restart=on-failure
