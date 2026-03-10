@@ -310,10 +310,10 @@ After the first pairing the phone will reconnect automatically.
 
 ```bash
 # Clone / copy the project to the Pi
-scp -r . david@raspberrypi.local:/home/david/orloy_app
+scp -r . david@raspberrypi.local:/home/david/Projects/orloy_app
 
 # On the Pi:
-cd /home/david/orloy_app
+cd /home/david/Projects/orloy_app
 python3 -m venv venv
 venv/bin/pip install -r requirements.txt
 ```
@@ -340,7 +340,7 @@ david ALL=(ALL) NOPASSWD: /sbin/shutdown
 ### 7. Install and enable the systemd service
 
 ```bash
-sudo cp /home/david/orloy_app/orloy_app.service /etc/systemd/system/
+sudo cp /home/david/Projects/orloy_app/orloy_app.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable orloy_app.service
 sudo systemctl start orloy_app.service
@@ -363,8 +363,8 @@ Tests run on any machine – no Raspberry Pi hardware needed.
 
 ```bash
 # In the project root:
-pip install -r requirements.txt   # or just: pip install gpiozero bluedot
-python -m pytest tests/ -v
+venv/bin/pip install -r requirements.txt
+venv/bin/python -m pytest tests/ -v
 ```
 
 ---
