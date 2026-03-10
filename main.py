@@ -22,10 +22,13 @@ from src.config import (
     BUTTON_SHUTDOWN_PIN,
     GEARBOX_OUTPUT_PIN,
     SHUTDOWN_HOLD_TIME,
+    WEB_HOST,
+    WEB_PORT,
 )
 from src.gpio_handler import GPIOHandler
 from src.mode_manager import ModeManager
 from src.motor_controller import MotorController
+from src.web_handler import WebHandler
 
 
 def _configure_logging() -> None:
@@ -60,6 +63,12 @@ def main() -> None:
         gearbox_output=gpio_handler.gearbox_output,
         shutdown_hold_time=SHUTDOWN_HOLD_TIME,
     )
+    web_handler = WebHandler(
+        mode_manager,
+        gearbox_output=gpio_handler.gearbox_output,
+        host=WEB_HOST,
+        port=WEB_PORT,
+    )
 
     stop_event = threading.Event()
 
@@ -77,6 +86,7 @@ def main() -> None:
     mode_manager.stop_all()
     gpio_handler.close()
     bt_handler.close()
+    web_handler.close()
     motor.close()
     logger.info("Application stopped")
 

@@ -1,6 +1,6 @@
-# Motor Controller – Raspberry Pi 5
+# Orloy – Motor Controller for Raspberry Pi 5
 
-Python application that controls a DC motor via GPIO and Bluetooth (BlueDot).
+Python application that controls a DC motor via GPIO, Bluetooth (BlueDot), and a **browser-based web control panel** served over Wi-Fi.
 
 ---
 
@@ -43,6 +43,38 @@ Pressing **Manual** while random mode is active stops random mode first.
 2. Pressing **Manual** again stops the motor.
 
 Pressing **Random** while manual mode is active stops manual mode first.
+
+---
+
+## Web control panel
+
+When the application starts it binds a small HTTP server on **port 8080** (all interfaces).  Connect your phone or laptop to the same Wi-Fi network as the Pi and open:
+
+```
+http://<Pi's IP address>:8080/
+```
+
+The page displays the current mode (IDLE / RANDOM / MANUAL) and four control buttons:
+
+| Button           | Behaviour                                               |
+|------------------|---------------------------------------------------------|
+| **RANDOM**       | Tap to toggle random mode                               |
+| **MANUAL**       | Tap to toggle manual mode                               |
+| **GEARBOX**      | Held HIGH while pressed, LOW on release                 |
+| **SHUTDOWN**     | Hold for 3 seconds to trigger `sudo shutdown -h now`   |
+
+The page polls `/api/status` every 2 seconds so the mode indicator stays in sync when the mode changes via a physical button or Bluetooth.
+
+### REST API
+
+| Method | Path                  | Action                                        |
+|--------|-----------------------|-----------------------------------------------|
+| GET    | `/api/status`         | Returns `{"mode": "IDLE"|"RANDOM"|"MANUAL"}`  |
+| POST   | `/api/toggle_random`  | Toggle random mode; returns updated mode      |
+| POST   | `/api/toggle_manual`  | Toggle manual mode; returns updated mode      |
+| POST   | `/api/gearbox/on`     | Drive gearbox output HIGH                     |
+| POST   | `/api/gearbox/off`    | Drive gearbox output LOW                      |
+| POST   | `/api/shutdown`       | Trigger `sudo shutdown -h now`                |
 
 ---
 
@@ -171,16 +203,18 @@ python -m pytest tests/ -v
 ```
 orloy_app/
 ├── src/
-│   ├── config.py             # GPIO pin constants & timing defaults
+│   ├── config.py             # GPIO pin constants, timing defaults, web config
 │   ├── motor_controller.py   # Thin wrapper around gpiozero.Motor
 │   ├── mode_manager.py       # Random / Manual mode state machine
 │   ├── gpio_handler.py       # Physical GPIO button callbacks
-│   └── bluetooth_handler.py  # BlueDot Bluetooth interface
+│   ├── bluetooth_handler.py  # BlueDot Bluetooth interface
+│   └── web_handler.py        # HTTP control panel (Flask/Werkzeug)
 ├── tests/
 │   ├── test_motor_controller.py
 │   ├── test_mode_manager.py
 │   ├── test_gpio_handler.py
-│   └── test_bluetooth_handler.py
+│   ├── test_bluetooth_handler.py
+│   └── test_web_handler.py
 ├── main.py                   # Application entry point
 ├── orloy_app.service         # systemd unit file
 └── requirements.txt

@@ -15,6 +15,10 @@ GEARBOX_OUTPUT_PIN = 5
 # How long the shutdown button must be held (seconds)
 SHUTDOWN_HOLD_TIME = 3.0
 
+# Web control panel
+WEB_HOST = "0.0.0.0"
+WEB_PORT = 8080
+
 # Random mode timing bounds
 RANDOM_MOVE_MIN_SEC = 5.0
 RANDOM_MOVE_MAX_SEC = 20.0
