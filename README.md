@@ -99,7 +99,17 @@ Raspberry Pi OS Bookworm uses NetworkManager, which has built-in hotspot support
    - **Password:** `orloy1234`
 4. Click **Create**.
 
-NetworkManager writes and manages the configuration automatically.  The hotspot starts immediately and reconnects on every subsequent boot — no further steps required.
+NetworkManager writes and manages the configuration automatically.  The hotspot starts immediately.
+
+5. Force 2.4 GHz band and a fixed channel so all devices (including iPhones) can see the network:
+
+```bash
+sudo nmcli connection modify Orloy 802-11-wireless.band bg 802-11-wireless.channel 6
+sudo nmcli connection down Orloy && sudo nmcli connection up Orloy
+sudo nmcli connection modify Orloy connection.autoconnect yes
+```
+
+The hotspot will now reconnect on every subsequent boot.
 
 **Pi's IP on this network:** `10.42.0.1`
 **Connect via:** `http://10.42.0.1:8080/` or `http://raspberrypi.local:8080/` (if avahi-daemon is running)
@@ -117,14 +127,12 @@ sudo nmcli device wifi hotspot \
     password orloy1234
 ```
 
-Make the hotspot start automatically on boot:
+Force 2.4 GHz band and a fixed channel so all devices (including iPhones) can see the network, then enable autoconnect:
 
 ```bash
-# List connections to find the name NetworkManager assigned (usually "Hotspot")
-nmcli connection show
-
-# Enable autoconnect (replace "Hotspot" with the actual name if different)
+sudo nmcli connection modify Hotspot 802-11-wireless.band bg 802-11-wireless.channel 6
 sudo nmcli connection modify Hotspot connection.autoconnect yes
+sudo nmcli connection down Hotspot && sudo nmcli connection up Hotspot
 ```
 
 Reboot to verify:
@@ -199,7 +207,7 @@ ignore_broadcast_ssid=0
 wpa=2
 wpa_passphrase=orloy1234
 wpa_key_mgmt=WPA-PSK
-wpa_pairwise=TKIP
+wpa_pairwise=CCMP
 rsn_pairwise=CCMP
 ```
 
@@ -229,6 +237,33 @@ sudo systemctl status dnsmasq
 
 ---
 
+### Troubleshooting the access point
+
+**Hotspot exists but wlan0 is disconnected (`nmcli device status` shows `wlan0 disconnected`):**
+```bash
+sudo nmcli connection up Orloy
+```
+
+**Error: `802.1X supplicant took too long to authenticate`** — the connection is misconfigured as a client instead of an AP.  Delete and recreate it:
+```bash
+sudo nmcli connection delete Orloy
+sudo nmcli device wifi hotspot ifname wlan0 ssid Orloy password orloy1234
+sudo nmcli connection modify Hotspot 802-11-wireless.band bg 802-11-wireless.channel 6
+sudo nmcli connection modify Hotspot connection.autoconnect yes connection.id Orloy
+```
+
+**Network not visible on iPhone (band/channel unset):**
+```bash
+nmcli connection show Orloy | grep -E "mode|band|channel"
+```
+If `band` is `--` and `channel` is `0`, force 2.4 GHz:
+```bash
+sudo nmcli connection modify Orloy 802-11-wireless.band bg 802-11-wireless.channel 6
+sudo nmcli connection down Orloy && sudo nmcli connection up Orloy
+```
+
+---
+
 ### Connecting from a phone or laptop
 
 1. Open **Wi-Fi settings** and select the network **Orloy**.
@@ -243,7 +278,9 @@ sudo systemctl status dnsmasq
 ¹ Requires avahi-daemon on the Pi (pre-installed on Raspberry Pi OS with Desktop).  Windows clients also need the Bonjour service.
 ² Resolved by dnsmasq for all DHCP clients automatically; no extra software needed.
 
-> **Note:** The Orloy network has no internet access — it only connects your device to the Pi.  Some phones show a "no internet" warning and may silently switch to mobile data.  If the page does not load, check that your device stayed on the Orloy network (disable "auto-switch to mobile data" if prompted).
+> **Note:** The Orloy network has no internet access — it only connects your device to the Pi.  Some phones show a "no internet" warning and may silently switch to mobile data.  If the page does not load, check that your device stayed on the Orloy network.
+>
+> **iPhone specifically:** when iOS shows the *"Use Without Internet?"* prompt after joining Orloy, tap **Use Without Internet** — otherwise iOS will drop the connection silently and fall back to mobile data.
 
 ---
 
