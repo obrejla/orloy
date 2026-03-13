@@ -12,7 +12,6 @@ import logging
 import signal
 import threading
 
-from src.bluetooth_handler import BluetoothHandler
 from src.config import (
     MOTOR_FORWARD_PIN,
     MOTOR_BACKWARD_PIN,
@@ -65,11 +64,6 @@ def main() -> None:
         sensor_pin=PIR_SENSOR_PIN,
         toggle_pin=BUTTON_PIR_TOGGLE_PIN,
     )
-    bt_handler = BluetoothHandler(
-        mode_manager,
-        gearbox_output=gpio_handler.gearbox_output,
-        shutdown_hold_time=SHUTDOWN_HOLD_TIME,
-    )
     web_handler = WebHandler(
         mode_manager,
         gearbox_output=gpio_handler.gearbox_output,
@@ -94,7 +88,6 @@ def main() -> None:
     mode_manager.stop_all()
     gpio_handler.close()
     pir_handler.close()
-    bt_handler.close()
     web_handler.close()
     motor.close()
     logger.info("Application stopped")

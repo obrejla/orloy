@@ -57,7 +57,7 @@ class TestGPIOHandlerCallbacks(unittest.TestCase):
             )
 
     def test_gearbox_output_is_accessible(self):
-        """gearbox_output must be a public attribute (used by BluetoothHandler)."""
+        """gearbox_output must be a public attribute (used by WebHandler)."""
         self.assertIs(self.handler.gearbox_output, self.gearbox_output)
 
 

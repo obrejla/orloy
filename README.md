@@ -1,6 +1,6 @@
 # Orloy – Motor Controller for Raspberry Pi 5
 
-Python application that controls a DC motor via GPIO, Bluetooth (BlueDot), and a **browser-based web control panel** served over Wi-Fi.
+Python application that controls a DC motor via GPIO buttons and a **browser-based web control panel** served over Wi-Fi.
 
 ---
 
@@ -71,7 +71,7 @@ The page displays the current mode (IDLE / RANDOM / MANUAL) and five control but
 | **SHUTDOWN**     | Hold for 3 seconds to trigger `sudo shutdown -h now`    |
 | **MOTION**       | Tap to toggle PIR motion detection ON / OFF             |
 
-The page polls `/api/status` every 2 seconds so the mode indicator stays in sync when the mode changes via a physical button or Bluetooth.
+The page polls `/api/status` every 2 seconds so the mode indicator stays in sync when the mode changes via a physical button.
 
 ### REST API
 
@@ -292,66 +292,26 @@ sudo nmcli connection down Orloy && sudo nmcli connection up Orloy
 
 ---
 
-## BlueDot (Bluetooth) interface
-
-Install the **BlueDot** app on an Android phone, pair it with the Raspberry Pi, and open the app.
-The large dot is divided into four zones:
-
-```
-        ┌──────────────────┐
-        │   RANDOM (top)   │
-        ├────────┬─────────┤
-        │ MANUAL │ GEARBOX │
-        │ (left) │ (right) │
-        ├────────┴─────────┤
-        │  SHUTDOWN (bot.) │
-        └──────────────────┘
-```
-
-- **RANDOM / MANUAL** – single tap toggles the mode.
-- **GEARBOX** – held high while finger pressed, released on lift.
-- **SHUTDOWN** – hold finger for ≥ 3 s to trigger shutdown.
-
----
-
 ## Raspberry Pi OS setup
 
 ### 1. Install OS dependencies
 
 ```bash
 sudo apt update
-sudo apt install -y python3-pip python3-venv bluetooth bluez
+sudo apt install -y python3-pip python3-venv
 ```
 
 > `hostapd` and `dnsmasq` are only needed for the Option C fallback AP setup — see the [Wi-Fi access point setup](#wi-fi-access-point-setup) section above.
 
-### 2. Add the `david` user to required groups
+### 2. Add the `david` user to the `gpio` group
 
 ```bash
-sudo usermod -aG gpio,bluetooth david
+sudo usermod -aG gpio david
 ```
 
 Log out and back in (or reboot) for group changes to take effect.
 
-### 3. Enable Bluetooth and make the Pi discoverable (one-time)
-
-```bash
-sudo systemctl enable bluetooth
-sudo systemctl start bluetooth
-
-# Pair your phone:
-bluetoothctl
-  power on
-  agent on
-  discoverable on
-  # Accept pairing request from the phone...
-  trust <PHONE_MAC>
-  quit
-```
-
-After the first pairing the phone will reconnect automatically.
-
-### 4. Deploy the application
+### 3. Deploy the application
 
 ```bash
 # Clone / copy the project to the Pi
@@ -423,7 +383,6 @@ orloy_app/
 │   ├── motor_controller.py   # Thin wrapper around gpiozero.Motor
 │   ├── mode_manager.py       # Random / Manual mode state machine
 │   ├── gpio_handler.py       # Physical GPIO button callbacks
-│   ├── bluetooth_handler.py  # BlueDot Bluetooth interface
 │   ├── pir_handler.py        # PIR motion sensor + detection toggle
 │   ├── web_handler.py        # HTTP control panel (Flask/Werkzeug)
 │   └── index.html            # Browser UI served by web_handler
@@ -431,7 +390,6 @@ orloy_app/
 │   ├── test_motor_controller.py
 │   ├── test_mode_manager.py
 │   ├── test_gpio_handler.py
-│   ├── test_bluetooth_handler.py
 │   ├── test_pir_handler.py
 │   └── test_web_handler.py
 ├── main.py                   # Application entry point
