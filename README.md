@@ -34,7 +34,7 @@ Use a suitable motor driver (e.g. L298N) between the Raspberry Pi and the motor.
 | Manual      | Toggles "manual" mode (see below)                             |
 | Gearbox     | Drives GPIO 5 HIGH while held, LOW on release                 |
 | Shutdown    | **Hold ≥ 3 s** → `sudo shutdown -h now`                       |
-| PIR toggle  | Toggles PIR motion detection ON / OFF (starts ON)             |
+| PIR toggle  | Toggles PIR motion detection ON / OFF (starts OFF)             |
 
 ### Random mode
 1. Picks a random direction (forward / backward) and a random duration (5–20 s).

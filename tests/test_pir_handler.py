@@ -20,9 +20,15 @@ def _make_pir_handler(initial_enabled=True):
 
 
 class TestPIRHandlerInit(unittest.TestCase):
-    def test_enabled_by_default(self):
-        handler, _, _, _ = _make_pir_handler()
-        self.assertTrue(handler.enabled)
+    def test_disabled_by_default(self):
+        with (
+            patch("src.pir_handler.MotionSensor", return_value=MagicMock()),
+            patch("src.pir_handler.Button", return_value=MagicMock()),
+            patch("src.pir_handler.LED", return_value=MagicMock()),
+        ):
+            from src.pir_handler import PIRHandler
+            handler = PIRHandler()
+        self.assertFalse(handler.enabled)
 
     def test_disabled_on_start(self):
         handler, _, _, _ = _make_pir_handler(initial_enabled=False)
