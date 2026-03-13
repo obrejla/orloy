@@ -5,13 +5,18 @@ from unittest.mock import MagicMock, patch
 from src.mode_manager import AppMode
 
 
-def _make_handler(mode=AppMode.IDLE, gearbox_output=None):
+def _make_handler(mode=AppMode.IDLE, gearbox_output=None, pir_handler=None):
     """Build a WebHandler with server thread disabled for testing."""
     from src.web_handler import WebHandler
 
     mode_manager = MagicMock()
     mode_manager.mode = mode
-    handler = WebHandler(mode_manager, gearbox_output=gearbox_output, _start=False)
+    handler = WebHandler(
+        mode_manager,
+        gearbox_output=gearbox_output,
+        pir_handler=pir_handler,
+        _start=False,
+    )
     return handler, mode_manager
 
 
@@ -144,4 +149,54 @@ class TestWebHandlerShutdown(unittest.TestCase):
         handler, _ = _make_handler()
         client = handler._app.test_client()
         resp = client.get("/api/shutdown")
+        self.assertEqual(resp.status_code, 405)
+
+
+class TestWebHandlerPIR(unittest.TestCase):
+    def test_status_includes_pir_enabled(self):
+        mock_pir = MagicMock()
+        mock_pir.enabled = True
+        handler, _ = _make_handler(pir_handler=mock_pir)
+        client = handler._app.test_client()
+        resp = client.get("/api/status")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertIn("pir_enabled", data)
+        self.assertTrue(data["pir_enabled"])
+
+    def test_status_excludes_pir_enabled_without_handler(self):
+        handler, _ = _make_handler(pir_handler=None)
+        client = handler._app.test_client()
+        resp = client.get("/api/status")
+        data = resp.get_json()
+        self.assertNotIn("pir_enabled", data)
+
+    def test_pir_toggle_calls_handler(self):
+        mock_pir = MagicMock()
+        mock_pir.toggle.return_value = False
+        handler, _ = _make_handler(pir_handler=mock_pir)
+        client = handler._app.test_client()
+        client.post("/api/pir/toggle")
+        mock_pir.toggle.assert_called_once()
+
+    def test_pir_toggle_returns_new_state(self):
+        mock_pir = MagicMock()
+        mock_pir.toggle.return_value = False
+        handler, _ = _make_handler(pir_handler=mock_pir)
+        client = handler._app.test_client()
+        resp = client.post("/api/pir/toggle")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json(), {"pir_enabled": False})
+
+    def test_pir_toggle_without_handler_returns_none(self):
+        handler, _ = _make_handler(pir_handler=None)
+        client = handler._app.test_client()
+        resp = client.post("/api/pir/toggle")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json(), {"pir_enabled": None})
+
+    def test_pir_toggle_get_not_allowed(self):
+        handler, _ = _make_handler()
+        client = handler._app.test_client()
+        resp = client.get("/api/pir/toggle")
         self.assertEqual(resp.status_code, 405)

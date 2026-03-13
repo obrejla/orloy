@@ -20,7 +20,9 @@ from src.config import (
     BUTTON_MANUAL_PIN,
     BUTTON_GEARBOX_PIN,
     BUTTON_SHUTDOWN_PIN,
+    BUTTON_PIR_TOGGLE_PIN,
     GEARBOX_OUTPUT_PIN,
+    PIR_SENSOR_PIN,
     SHUTDOWN_HOLD_TIME,
     WEB_HOST,
     WEB_PORT,
@@ -28,6 +30,7 @@ from src.config import (
 from src.gpio_handler import GPIOHandler
 from src.mode_manager import ModeManager
 from src.motor_controller import MotorController
+from src.pir_handler import PIRHandler
 from src.web_handler import WebHandler
 
 
@@ -58,6 +61,10 @@ def main() -> None:
         gearbox_out_pin=GEARBOX_OUTPUT_PIN,
         shutdown_hold_time=SHUTDOWN_HOLD_TIME,
     )
+    pir_handler = PIRHandler(
+        sensor_pin=PIR_SENSOR_PIN,
+        toggle_pin=BUTTON_PIR_TOGGLE_PIN,
+    )
     bt_handler = BluetoothHandler(
         mode_manager,
         gearbox_output=gpio_handler.gearbox_output,
@@ -66,6 +73,7 @@ def main() -> None:
     web_handler = WebHandler(
         mode_manager,
         gearbox_output=gpio_handler.gearbox_output,
+        pir_handler=pir_handler,
         host=WEB_HOST,
         port=WEB_PORT,
     )
@@ -85,6 +93,7 @@ def main() -> None:
     logger.info("Cleaning up…")
     mode_manager.stop_all()
     gpio_handler.close()
+    pir_handler.close()
     bt_handler.close()
     web_handler.close()
     motor.close()

@@ -7,11 +7,12 @@ Open the control panel at:
     http://<Pi's WiFi IP>:<WEB_PORT>/
 
 REST API:
-    GET  /api/status          – current mode as JSON
+    GET  /api/status          – current mode and pir_enabled as JSON
     POST /api/toggle_random   – toggle random mode
     POST /api/toggle_manual   – toggle manual mode
     POST /api/gearbox/on      – drive gearbox output HIGH
     POST /api/gearbox/off     – drive gearbox output LOW
+    POST /api/pir/toggle      – toggle PIR motion detection on/off
     POST /api/shutdown        – trigger OS shutdown
 """
 
@@ -56,12 +57,14 @@ class WebHandler:
         self,
         mode_manager,
         gearbox_output=None,
+        pir_handler=None,
         host: str = WEB_HOST,
         port: int = WEB_PORT,
         _start: bool = True,
     ) -> None:
         self._mode_manager = mode_manager
         self._gearbox_output = gearbox_output
+        self._pir_handler = pir_handler
         self._host = host
         self._port = port
         self._server = None
@@ -97,7 +100,10 @@ class WebHandler:
 
         @app.route("/api/status")
         def status():
-            return jsonify({"mode": self._mode_manager.mode.name})
+            payload = {"mode": self._mode_manager.mode.name}
+            if self._pir_handler is not None:
+                payload["pir_enabled"] = self._pir_handler.enabled
+            return jsonify(payload)
 
         @app.route("/api/toggle_random", methods=["POST"])
         def toggle_random():
@@ -124,6 +130,12 @@ class WebHandler:
             if self._gearbox_output is not None:
                 self._gearbox_output.off()
             return jsonify({"gearbox": "off"})
+
+        @app.route("/api/pir/toggle", methods=["POST"])
+        def pir_toggle():
+            logger.info("Web: PIR toggle")
+            new_state = self._pir_handler.toggle() if self._pir_handler is not None else None
+            return jsonify({"pir_enabled": new_state})
 
         @app.route("/api/shutdown", methods=["POST"])
         def shutdown():

@@ -111,6 +111,13 @@
       transition: width var(--hold-ms) linear;
     }
 
+    /* MOTION – full width */
+    #btn-pir { grid-column: 1 / -1; border-color: #f4a261; }
+    #btn-pir.active {
+      background: #f4a261; color: #0d0d1a;
+      box-shadow: 0 0 18px rgba(244,162,97,0.5);
+    }
+
     .error-toast {
       position: fixed;
       bottom: 1.5rem;
@@ -140,6 +147,7 @@
       SHUTDOWN (hold 3s)
       <div class="progress" id="shutdown-progress"></div>
     </button>
+    <button class="btn active" id="btn-pir">MOTION: ON</button>
   </div>
 
   <div class="error-toast" id="toast">Connection error</div>
@@ -157,6 +165,11 @@
       bar.className = mode;
       document.getElementById('btn-random').classList.toggle('active', mode === 'RANDOM');
       document.getElementById('btn-manual').classList.toggle('active', mode === 'MANUAL');
+      if (data.pir_enabled !== undefined) {
+        const pirBtn = document.getElementById('btn-pir');
+        pirBtn.classList.toggle('active', data.pir_enabled);
+        pirBtn.textContent = 'MOTION: ' + (data.pir_enabled ? 'ON' : 'OFF');
+      }
     }
 
     function showError() {
@@ -188,6 +201,20 @@
     // ------------------------------------------------------------------ //
     document.getElementById('btn-random').addEventListener('click', () => apiPost('/toggle_random'));
     document.getElementById('btn-manual').addEventListener('click', () => apiPost('/toggle_manual'));
+
+    // ------------------------------------------------------------------ //
+    // MOTION – toggle PIR detection on click
+    // ------------------------------------------------------------------ //
+    document.getElementById('btn-pir').addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/pir/toggle', { method: 'POST' });
+        if (!res.ok) { showError(); return; }
+        const data = await res.json();
+        const pirBtn = document.getElementById('btn-pir');
+        pirBtn.classList.toggle('active', data.pir_enabled);
+        pirBtn.textContent = 'MOTION: ' + (data.pir_enabled ? 'ON' : 'OFF');
+      } catch (_) { showError(); }
+    });
 
     // ------------------------------------------------------------------ //
     // GEARBOX – HIGH while held, LOW on release

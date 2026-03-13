@@ -12,6 +12,10 @@ BUTTON_SHUTDOWN_PIN = 23
 # Output signal driven HIGH while gearbox button is held
 GEARBOX_OUTPUT_PIN = 5
 
+# PIR motion sensor
+PIR_SENSOR_PIN = 12
+BUTTON_PIR_TOGGLE_PIN = 16
+
 # How long the shutdown button must be held (seconds)
 SHUTDOWN_HOLD_TIME = 3.0
 

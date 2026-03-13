@@ -15,20 +15,24 @@ Python application that controls a DC motor via GPIO, Bluetooth (BlueDot), and a
 | Button – Gearbox       | GPIO 22  |
 | Button – Shutdown      | GPIO 23  |
 | Gearbox signal output  | GPIO 5   |
+| PIR motion sensor      | GPIO 12  |
+| Button – PIR toggle    | GPIO 16  |
 
 All buttons are wired between the GPIO pin and **GND** (active-low, internal pull-up used).
+The PIR sensor output is wired directly to GPIO 12 (the sensor drives the pin; no pull resistor required).
 Use a suitable motor driver (e.g. L298N) between the Raspberry Pi and the motor.
 
 ---
 
 ## Button behaviour
 
-| Button   | Short press / hold                                               |
-|----------|------------------------------------------------------------------|
-| Random   | Toggles "random" mode (see below)                                |
-| Manual   | Toggles "manual" mode (see below)                                |
-| Gearbox  | Drives GPIO 5 HIGH while held, LOW on release                    |
-| Shutdown | **Hold ≥ 3 s** → `sudo shutdown -h now`                          |
+| Button      | Short press / hold                                            |
+|-------------|---------------------------------------------------------------|
+| Random      | Toggles "random" mode (see below)                             |
+| Manual      | Toggles "manual" mode (see below)                             |
+| Gearbox     | Drives GPIO 5 HIGH while held, LOW on release                 |
+| Shutdown    | **Hold ≥ 3 s** → `sudo shutdown -h now`                       |
+| PIR toggle  | Toggles PIR motion detection ON / OFF (starts ON)             |
 
 ### Random mode
 1. Picks a random direction (forward / backward) and a random duration (5–20 s).
@@ -55,27 +59,29 @@ When the application starts it binds a small HTTP server on **port 8080** (all i
 | Option A / B (NetworkManager) | `http://10.42.0.1:8080/` |
 | Option C (hostapd/dnsmasq) | `http://192.168.4.1:8080/` |
 
-The page displays the current mode (IDLE / RANDOM / MANUAL) and four control buttons:
+The page displays the current mode (IDLE / RANDOM / MANUAL) and five control buttons:
 
 | Button           | Behaviour                                               |
 |------------------|---------------------------------------------------------|
 | **RANDOM**       | Tap to toggle random mode                               |
 | **MANUAL**       | Tap to toggle manual mode                               |
 | **GEARBOX**      | Held HIGH while pressed, LOW on release                 |
-| **SHUTDOWN**     | Hold for 3 seconds to trigger `sudo shutdown -h now`   |
+| **SHUTDOWN**     | Hold for 3 seconds to trigger `sudo shutdown -h now`    |
+| **MOTION**       | Tap to toggle PIR motion detection ON / OFF             |
 
 The page polls `/api/status` every 2 seconds so the mode indicator stays in sync when the mode changes via a physical button or Bluetooth.
 
 ### REST API
 
-| Method | Path                  | Action                                        |
-|--------|-----------------------|-----------------------------------------------|
-| GET    | `/api/status`         | Returns `{"mode": "IDLE"|"RANDOM"|"MANUAL"}`  |
-| POST   | `/api/toggle_random`  | Toggle random mode; returns updated mode      |
-| POST   | `/api/toggle_manual`  | Toggle manual mode; returns updated mode      |
-| POST   | `/api/gearbox/on`     | Drive gearbox output HIGH                     |
-| POST   | `/api/gearbox/off`    | Drive gearbox output LOW                      |
-| POST   | `/api/shutdown`       | Trigger `sudo shutdown -h now`                |
+| Method | Path                  | Action                                                              |
+|--------|-----------------------|---------------------------------------------------------------------|
+| GET    | `/api/status`         | Returns `{"mode": "…", "pir_enabled": true\|false}`                |
+| POST   | `/api/toggle_random`  | Toggle random mode; returns updated mode                            |
+| POST   | `/api/toggle_manual`  | Toggle manual mode; returns updated mode                            |
+| POST   | `/api/gearbox/on`     | Drive gearbox output HIGH                                           |
+| POST   | `/api/gearbox/off`    | Drive gearbox output LOW                                            |
+| POST   | `/api/pir/toggle`     | Toggle PIR detection ON/OFF; returns `{"pir_enabled": true\|false}` |
+| POST   | `/api/shutdown`       | Trigger `sudo shutdown -h now`                                      |
 
 ---
 
@@ -416,6 +422,7 @@ orloy_app/
 │   ├── mode_manager.py       # Random / Manual mode state machine
 │   ├── gpio_handler.py       # Physical GPIO button callbacks
 │   ├── bluetooth_handler.py  # BlueDot Bluetooth interface
+│   ├── pir_handler.py        # PIR motion sensor + detection toggle
 │   ├── web_handler.py        # HTTP control panel (Flask/Werkzeug)
 │   └── index.html            # Browser UI served by web_handler
 ├── tests/
@@ -423,6 +430,7 @@ orloy_app/
 │   ├── test_mode_manager.py
 │   ├── test_gpio_handler.py
 │   ├── test_bluetooth_handler.py
+│   ├── test_pir_handler.py
 │   └── test_web_handler.py
 ├── main.py                   # Application entry point
 ├── orloy_app.service         # systemd unit file
