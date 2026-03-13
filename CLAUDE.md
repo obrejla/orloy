@@ -36,7 +36,7 @@ Web (HTTP)    ──┘
 - **`GPIOHandler`** (`src/gpio_handler.py`) wires `gpiozero.Button` callbacks → `ModeManager`. It owns the shared `gearbox_output` (`OutputDevice`) as a public attribute so `BluetoothHandler` and `WebHandler` can reuse it.
 - **`BluetoothHandler`** (`src/bluetooth_handler.py`) wires BlueDot touch zones → the same `ModeManager` methods and the same `gearbox_output`. Shutdown hold is implemented with `threading.Timer`.
 - **`WebHandler`** (`src/web_handler.py`) serves `src/index.html` and a REST API over HTTP (default port 8080). Runs a Werkzeug server in a daemon thread. Shutdown hold is implemented client-side in JavaScript.
-- **`PIRHandler`** (`src/pir_handler.py`) manages a `gpiozero.MotionSensor` on GPIO 12 and a dedicated toggle button on GPIO 16. Detection is ON at startup; logs motion events when enabled. Exposes `toggle()` and `enabled` for the web API.
+- **`PIRHandler`** (`src/pir_handler.py`) manages a `gpiozero.MotionSensor` on GPIO 12, a toggle button on GPIO 16, and a `gpiozero.LED` indicator on GPIO 20. Detection is ON at startup; logs motion events when enabled and turns the LED on during motion (off when motion stops). Exposes `toggle()` and `enabled` for the web API.
 - **`MotorController`** (`src/motor_controller.py`) is a thin wrapper around `gpiozero.Motor` to make it easily mockable.
 - **`config.py`** (`src/config.py`) holds all GPIO pin numbers, timing constants, and web server settings (`WEB_HOST`, `WEB_PORT`).
 
@@ -57,3 +57,4 @@ All `gpiozero` and `bluedot` classes are patched before import using `unittest.m
 | Gearbox signal out  | 5    |
 | PIR sensor          | 12   |
 | Button: PIR toggle  | 16   |
+| LED: PIR indicator  | 20   |

@@ -17,9 +17,11 @@ Python application that controls a DC motor via GPIO, Bluetooth (BlueDot), and a
 | Gearbox signal output  | GPIO 5   |
 | PIR motion sensor      | GPIO 12  |
 | Button – PIR toggle    | GPIO 16  |
+| LED – PIR motion indicator | GPIO 20  |
 
 All buttons are wired between the GPIO pin and **GND** (active-low, internal pull-up used).
 The PIR sensor output is wired directly to GPIO 12 (the sensor drives the pin; no pull resistor required).
+The LED anode connects to GPIO 20 through a suitable current-limiting resistor (e.g. 330 Ω), cathode to GND.
 Use a suitable motor driver (e.g. L298N) between the Raspberry Pi and the motor.
 
 ---
