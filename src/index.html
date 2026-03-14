@@ -247,6 +247,7 @@
 
     // Update all audio-related controls for both players at once.
     // Both players share the same mixer, so they are locked together.
+    let wasPlaying = false;
     function updateAudioUI(playing) {
       const audioPlay  = document.getElementById('btn-audio-play');
       const audioStop  = document.getElementById('btn-audio-stop');
@@ -267,10 +268,11 @@
       speechPlay.classList.toggle('active', playing);
       speechStop.classList.toggle('active', playing);
 
-      if (!playing) {
+      if (wasPlaying && !playing) {
         audioSel.value  = '';
         speechSel.value = '';
       }
+      wasPlaying = playing;
     }
 
     function updateUI(data) {
