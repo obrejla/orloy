@@ -29,12 +29,15 @@ GPIO buttons  ──┐
                 ├──▶  ModeManager  ──▶  MotorController  ──▶  gpiozero.Motor
 Web (HTTP)    ──┘         │
                            └──▶  gearbox_output (OutputDevice, GPIO 5)
+
+Web (HTTP)    ──▶  AudioHandler  ──▶  pygame.mixer
 ```
 
 - **`ModeManager`** (`src/mode_manager.py`) is the single source of truth for state (IDLE / RANDOM / MANUAL). It is thread-safe (`threading.Lock`). The random loop runs in a daemon thread and uses `threading.Event.wait()` so it wakes immediately when stopped.
 - **`GPIOHandler`** (`src/gpio_handler.py`) wires `gpiozero.Button` callbacks → `ModeManager`. It owns the shared `gearbox_output` (`OutputDevice`) as a public attribute so `WebHandler` can reuse it.
 - **`WebHandler`** (`src/web_handler.py`) serves `src/index.html` and a REST API over HTTP (default port 8080). Runs a Werkzeug server in a daemon thread. Shutdown hold is implemented client-side in JavaScript.
 - **`PIRHandler`** (`src/pir_handler.py`) manages a `gpiozero.MotionSensor` on GPIO 12, a toggle button on GPIO 16, and a `gpiozero.LED` indicator on GPIO 20. Detection is OFF at startup; logs motion events when enabled and turns the LED on during motion (off when motion stops). Exposes `toggle()` and `enabled` for the web API.
+- **`AudioHandler`** (`src/audio_handler.py`) plays MP3 files from `mp3/teams/` via `pygame.mixer`. Thread-safe. No GPIO pins. Exposes `list_tracks()`, `play(filename)`, and `stop()` for the web API.
 - **`MotorController`** (`src/motor_controller.py`) is a thin wrapper around `gpiozero.Motor` to make it easily mockable.
 - **`config.py`** (`src/config.py`) holds all GPIO pin numbers, timing constants, and web server settings (`WEB_HOST`, `WEB_PORT`).
 

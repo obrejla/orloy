@@ -14,6 +14,9 @@ REST API:
     POST /api/gearbox/off     – drive gearbox output LOW
     POST /api/pir/toggle      – toggle PIR motion detection on/off
     POST /api/shutdown        – trigger OS shutdown
+    GET  /api/audio/tracks    – list available MP3 filenames
+    POST /api/audio/play      – play a track  {"filename": "cerveni.mp3"}
+    POST /api/audio/stop      – stop playback
 """
 
 import logging
@@ -21,7 +24,7 @@ import subprocess
 import threading
 from pathlib import Path
 
-from flask import Flask, jsonify, send_file
+from flask import Flask, jsonify, request, send_file
 
 from src.config import WEB_AP_IP_HOSTAPD, WEB_AP_IP_NM, WEB_HOST, WEB_PORT
 
@@ -58,6 +61,7 @@ class WebHandler:
         mode_manager,
         gearbox_output=None,
         pir_handler=None,
+        audio_handler=None,
         host: str = WEB_HOST,
         port: int = WEB_PORT,
         _start: bool = True,
@@ -65,6 +69,7 @@ class WebHandler:
         self._mode_manager = mode_manager
         self._gearbox_output = gearbox_output
         self._pir_handler = pir_handler
+        self._audio_handler = audio_handler
         self._host = host
         self._port = port
         self._server = None
@@ -103,6 +108,8 @@ class WebHandler:
             payload = {"mode": self._mode_manager.mode.name}
             if self._pir_handler is not None:
                 payload["pir_enabled"] = self._pir_handler.enabled
+            if self._audio_handler is not None:
+                payload["audio_playing"] = self._audio_handler.is_playing
             return jsonify(payload)
 
         @app.route("/api/toggle_random", methods=["POST"])
@@ -142,6 +149,29 @@ class WebHandler:
             logger.info("Web: shutdown requested")
             subprocess.run(["sudo", "shutdown", "-h", "now"], check=False)
             return jsonify({"shutdown": "triggered"})
+
+        @app.route("/api/audio/tracks")
+        def audio_tracks():
+            tracks = self._audio_handler.list_tracks() if self._audio_handler is not None else []
+            return jsonify({"tracks": tracks})
+
+        @app.route("/api/audio/play", methods=["POST"])
+        def audio_play():
+            if self._audio_handler is None:
+                return jsonify({"error": "no audio handler"}), 503
+            body = request.get_json(silent=True) or {}
+            filename = body.get("filename", "")
+            try:
+                self._audio_handler.play(filename)
+                return jsonify({"playing": filename})
+            except ValueError as exc:
+                return jsonify({"error": str(exc)}), 400
+
+        @app.route("/api/audio/stop", methods=["POST"])
+        def audio_stop():
+            if self._audio_handler is not None:
+                self._audio_handler.stop()
+            return jsonify({"stopped": True})
 
     # ------------------------------------------------------------------ #
     # Server thread                                                        #

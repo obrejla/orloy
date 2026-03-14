@@ -61,15 +61,16 @@ When the application starts it binds a small HTTP server on **port 8080** (all i
 | Option A / B (NetworkManager) | `http://10.42.0.1:8080/` |
 | Option C (hostapd/dnsmasq) | `http://192.168.4.1:8080/` |
 
-The page displays the current mode (IDLE / RANDOM / MANUAL) and five control buttons:
+The page displays the current mode (IDLE / RANDOM / MANUAL) and six control sections:
 
-| Button           | Behaviour                                               |
+| Button / Section | Behaviour                                               |
 |------------------|---------------------------------------------------------|
 | **RANDOM**       | Tap to toggle random mode                               |
 | **MANUAL**       | Tap to toggle manual mode                               |
 | **GEARBOX**      | Held HIGH while pressed, LOW on release                 |
-| **SHUTDOWN**     | Hold for 3 seconds to trigger `sudo shutdown -h now`    |
 | **MOTION**       | Tap to toggle PIR motion detection ON / OFF             |
+| **TEAM SOUND**   | Select a track from the dropdown and tap PLAY; tap STOP to stop |
+| **SHUTDOWN**     | Hold for 3 seconds to trigger `sudo shutdown -h now`    |
 
 The page polls `/api/status` every 2 seconds so the mode indicator stays in sync when the mode changes via a physical button.
 
@@ -84,6 +85,9 @@ The page polls `/api/status` every 2 seconds so the mode indicator stays in sync
 | POST   | `/api/gearbox/off`    | Drive gearbox output LOW                                            |
 | POST   | `/api/pir/toggle`     | Toggle PIR detection ON/OFF; returns `{"pir_enabled": true\|false}` |
 | POST   | `/api/shutdown`       | Trigger `sudo shutdown -h now`                                      |
+| GET    | `/api/audio/tracks`   | Returns `{"tracks": ["cerveni.mp3", …]}`                            |
+| POST   | `/api/audio/play`     | Play a track; body `{"filename": "cerveni.mp3"}`; returns `{"playing": "…"}` |
+| POST   | `/api/audio/stop`     | Stop playback; returns `{"stopped": true}`                          |
 
 ---
 
@@ -384,6 +388,7 @@ orloy_app/
 │   ├── mode_manager.py       # Random / Manual mode state machine
 │   ├── gpio_handler.py       # Physical GPIO button callbacks
 │   ├── pir_handler.py        # PIR motion sensor + detection toggle
+│   ├── audio_handler.py      # MP3 playback via pygame.mixer
 │   ├── web_handler.py        # HTTP control panel (Flask/Werkzeug)
 │   └── index.html            # Browser UI served by web_handler
 ├── tests/
@@ -391,7 +396,10 @@ orloy_app/
 │   ├── test_mode_manager.py
 │   ├── test_gpio_handler.py
 │   ├── test_pir_handler.py
+│   ├── test_audio_handler.py
 │   └── test_web_handler.py
+├── mp3/
+│   └── teams/                # MP3 team colour files (cerveni, modri, zeleni, zluti)
 ├── main.py                   # Application entry point
 ├── orloy_app.service         # systemd unit file
 └── requirements.txt

@@ -118,6 +118,51 @@
       box-shadow: 0 0 18px rgba(244,162,97,0.5);
     }
 
+    /* TEAM SOUND – full width section */
+    #audio-section {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    #audio-section label {
+      font-size: 0.8rem;
+      letter-spacing: 0.14em;
+      color: #888;
+      text-transform: uppercase;
+    }
+    #audio-select {
+      width: 100%;
+      padding: 0.9rem 1rem;
+      border-radius: 10px;
+      border: 2px solid #3a86ff;
+      background: #12122a;
+      color: #c0c0e0;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #audio-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    #btn-audio-play { border-color: #3a86ff; }
+    #btn-audio-play.active {
+      background: #3a86ff; color: #fff;
+      box-shadow: 0 0 18px rgba(58,134,255,0.5);
+    }
+    #btn-audio-stop { border-color: #e63946; }
+    #btn-audio-stop.active {
+      background: #e63946; color: #fff;
+      box-shadow: 0 0 18px rgba(230,57,70,0.5);
+    }
+    .btn:disabled, #audio-select:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .btn:disabled:active { transform: none; }
+
     .error-toast {
       position: fixed;
       bottom: 1.5rem;
@@ -142,12 +187,22 @@
     <button class="btn" id="btn-random">RANDOM</button>
     <button class="btn" id="btn-manual">MANUAL</button>
     <button class="btn" id="btn-gearbox">GEARBOX</button>
+    <button class="btn" id="btn-pir">MOTION: OFF</button>
+    <div id="audio-section">
+      <label>Team Sound</label>
+      <select id="audio-select">
+        <option value="">-- select track --</option>
+      </select>
+      <div id="audio-controls">
+        <button class="btn" id="btn-audio-play">PLAY</button>
+        <button class="btn" id="btn-audio-stop" disabled>STOP</button>
+      </div>
+    </div>
     <button class="btn" id="btn-shutdown"
             style="--hold-ms: 3s;">
       SHUTDOWN (hold 3s)
       <div class="progress" id="shutdown-progress"></div>
     </button>
-    <button class="btn" id="btn-pir">MOTION: OFF</button>
   </div>
 
   <div class="error-toast" id="toast">Connection error</div>
@@ -158,6 +213,17 @@
     // ------------------------------------------------------------------ //
     // Status polling
     // ------------------------------------------------------------------ //
+    function updateAudioUI(playing) {
+      const playBtn = document.getElementById('btn-audio-play');
+      const stopBtn = document.getElementById('btn-audio-stop');
+      const sel     = document.getElementById('audio-select');
+      playBtn.disabled = playing;
+      sel.disabled     = playing;
+      stopBtn.disabled = !playing;
+      playBtn.classList.toggle('active', playing);
+      stopBtn.classList.toggle('active', playing);
+    }
+
     function updateUI(data) {
       const mode = data.mode;
       const bar = document.getElementById('status-bar');
@@ -169,6 +235,9 @@
         const pirBtn = document.getElementById('btn-pir');
         pirBtn.classList.toggle('active', data.pir_enabled);
         pirBtn.textContent = 'MOTION: ' + (data.pir_enabled ? 'ON' : 'OFF');
+      }
+      if (data.audio_playing !== undefined) {
+        updateAudioUI(data.audio_playing);
       }
     }
 
@@ -271,6 +340,49 @@
     shutdownBtn.addEventListener('touchstart', e => { e.preventDefault(); shutdownHoldStart(); });
     shutdownBtn.addEventListener('touchend',   e => { e.preventDefault(); shutdownHoldCancel(); });
     shutdownBtn.addEventListener('touchcancel',e => { e.preventDefault(); shutdownHoldCancel(); });
+
+    // ------------------------------------------------------------------ //
+    // TEAM SOUND – load tracks on page load, PLAY / STOP
+    // ------------------------------------------------------------------ //
+    async function loadTracks() {
+      try {
+        const res = await fetch('/api/audio/tracks');
+        if (!res.ok) return;
+        const data = await res.json();
+        const sel = document.getElementById('audio-select');
+        sel.innerHTML = '<option value="">-- select track --</option>';
+        (data.tracks || []).forEach(filename => {
+          const opt = document.createElement('option');
+          opt.value = filename;
+          opt.textContent = filename.replace(/\.mp3$/i, '')
+                                    .replace(/\b\w/g, c => c.toUpperCase());
+          sel.appendChild(opt);
+        });
+      } catch (_) {}
+    }
+
+    document.getElementById('btn-audio-play').addEventListener('click', async () => {
+      const filename = document.getElementById('audio-select').value;
+      if (!filename) return;
+      updateAudioUI(true);   // optimistic: lock controls immediately
+      try {
+        const res = await fetch('/api/audio/play', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename })
+        });
+        if (!res.ok) { updateAudioUI(false); showError(); }
+      } catch (_) { updateAudioUI(false); showError(); }
+    });
+
+    document.getElementById('btn-audio-stop').addEventListener('click', async () => {
+      try {
+        await fetch('/api/audio/stop', { method: 'POST' });
+        updateAudioUI(false);
+      } catch (_) {}
+    });
+
+    loadTracks();
   </script>
 </body>
 </html>

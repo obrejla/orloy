@@ -12,7 +12,9 @@ import logging
 import signal
 import threading
 
+from src.audio_handler import AudioHandler
 from src.config import (
+    AUDIO_TEAMS_DIR,
     MOTOR_FORWARD_PIN,
     MOTOR_BACKWARD_PIN,
     BUTTON_RANDOM_PIN,
@@ -64,10 +66,12 @@ def main() -> None:
         sensor_pin=PIR_SENSOR_PIN,
         toggle_pin=BUTTON_PIR_TOGGLE_PIN,
     )
+    audio_handler = AudioHandler(AUDIO_TEAMS_DIR)
     web_handler = WebHandler(
         mode_manager,
         gearbox_output=gpio_handler.gearbox_output,
         pir_handler=pir_handler,
+        audio_handler=audio_handler,
         host=WEB_HOST,
         port=WEB_PORT,
     )
@@ -88,6 +92,7 @@ def main() -> None:
     mode_manager.stop_all()
     gpio_handler.close()
     pir_handler.close()
+    audio_handler.close()
     web_handler.close()
     motor.close()
     logger.info("Application stopped")

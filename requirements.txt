@@ -3,3 +3,4 @@ lgpio>=0.2.2.0
 RPi.GPIO>=0.7.1
 flask>=3.0
 pytest>=7.0
+pygame>=2.5

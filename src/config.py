@@ -1,3 +1,5 @@
+import os
+
 # GPIO pin assignments
 # Motor driver (e.g. L298N IN1/IN2)
 MOTOR_FORWARD_PIN = 24
@@ -31,3 +33,6 @@ RANDOM_MOVE_MIN_SEC = 5.0
 RANDOM_MOVE_MAX_SEC = 20.0
 RANDOM_PAUSE_MIN_SEC = 60.0    # 1 minute
 RANDOM_PAUSE_MAX_SEC = 600.0   # 10 minutes
+
+# Audio tracks directory (mp3/teams/ relative to this file)
+AUDIO_TEAMS_DIR = os.path.join(os.path.dirname(__file__), "..", "mp3", "teams")

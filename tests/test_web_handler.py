@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from src.mode_manager import AppMode
 
 
-def _make_handler(mode=AppMode.IDLE, gearbox_output=None, pir_handler=None):
+def _make_handler(mode=AppMode.IDLE, gearbox_output=None, pir_handler=None, audio_handler=None):
     """Build a WebHandler with server thread disabled for testing."""
     from src.web_handler import WebHandler
 
@@ -15,6 +15,7 @@ def _make_handler(mode=AppMode.IDLE, gearbox_output=None, pir_handler=None):
         mode_manager,
         gearbox_output=gearbox_output,
         pir_handler=pir_handler,
+        audio_handler=audio_handler,
         _start=False,
     )
     return handler, mode_manager
@@ -199,4 +200,84 @@ class TestWebHandlerPIR(unittest.TestCase):
         handler, _ = _make_handler()
         client = handler._app.test_client()
         resp = client.get("/api/pir/toggle")
+        self.assertEqual(resp.status_code, 405)
+
+
+class TestWebHandlerAudio(unittest.TestCase):
+    def setUp(self):
+        self.mock_audio = MagicMock()
+        self.mock_audio.list_tracks.return_value = ["cerveni.mp3", "modri.mp3"]
+        self.handler, _ = _make_handler(audio_handler=self.mock_audio)
+        self.client = self.handler._app.test_client()
+
+    def test_status_includes_audio_playing(self):
+        self.mock_audio.is_playing = True
+        resp = self.client.get("/api/status")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.get_json()["audio_playing"])
+
+    def test_status_audio_playing_false_when_idle(self):
+        self.mock_audio.is_playing = False
+        resp = self.client.get("/api/status")
+        self.assertFalse(resp.get_json()["audio_playing"])
+
+    def test_status_excludes_audio_playing_without_handler(self):
+        handler, _ = _make_handler(audio_handler=None)
+        client = handler._app.test_client()
+        resp = client.get("/api/status")
+        self.assertNotIn("audio_playing", resp.get_json())
+
+    def test_get_tracks_returns_list(self):
+        resp = self.client.get("/api/audio/tracks")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json(), {"tracks": ["cerveni.mp3", "modri.mp3"]})
+
+    def test_get_tracks_without_handler_returns_empty(self):
+        handler, _ = _make_handler(audio_handler=None)
+        client = handler._app.test_client()
+        resp = client.get("/api/audio/tracks")
+        self.assertEqual(resp.get_json(), {"tracks": []})
+
+    def test_play_calls_handler(self):
+        resp = self.client.post(
+            "/api/audio/play",
+            json={"filename": "cerveni.mp3"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.mock_audio.play.assert_called_once_with("cerveni.mp3")
+
+    def test_play_returns_playing_filename(self):
+        resp = self.client.post("/api/audio/play", json={"filename": "modri.mp3"})
+        self.assertEqual(resp.get_json(), {"playing": "modri.mp3"})
+
+    def test_play_invalid_filename_returns_400(self):
+        self.mock_audio.play.side_effect = ValueError("invalid")
+        resp = self.client.post("/api/audio/play", json={"filename": "../evil.mp3"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_play_without_handler_returns_503(self):
+        handler, _ = _make_handler(audio_handler=None)
+        client = handler._app.test_client()
+        resp = client.post("/api/audio/play", json={"filename": "cerveni.mp3"})
+        self.assertEqual(resp.status_code, 503)
+
+    def test_stop_calls_handler(self):
+        resp = self.client.post("/api/audio/stop")
+        self.assertEqual(resp.status_code, 200)
+        self.mock_audio.stop.assert_called_once()
+
+    def test_stop_without_handler_is_noop(self):
+        handler, _ = _make_handler(audio_handler=None)
+        client = handler._app.test_client()
+        resp = client.post("/api/audio/stop")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json(), {"stopped": True})
+
+    def test_play_get_not_allowed(self):
+        resp = self.client.get("/api/audio/play")
+        self.assertEqual(resp.status_code, 405)
+
+    def test_stop_get_not_allowed(self):
+        resp = self.client.get("/api/audio/stop")
         self.assertEqual(resp.status_code, 405)
