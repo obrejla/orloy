@@ -59,3 +59,8 @@ All `gpiozero` classes are patched before import using `unittest.mock.patch`. Te
 | PIR sensor          | 12   |
 | Button: PIR toggle  | 16   |
 | LED: PIR indicator  | 20   |
+
+## Development conventions
+
+- **Web UI — SHUTDOWN button position**: The SHUTDOWN button must always be the last control on the web UI page (`src/index.html`). Do not add any new button or section after it.
+- **Documentation**: Every new feature or feature adjustment must be properly documented — public classes and methods must have docstrings, and changes must be reflected in `README.md`.
