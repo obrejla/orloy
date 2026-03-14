@@ -34,5 +34,6 @@ RANDOM_MOVE_MAX_SEC = 20.0
 RANDOM_PAUSE_MIN_SEC = 60.0    # 1 minute
 RANDOM_PAUSE_MAX_SEC = 600.0   # 10 minutes
 
-# Audio tracks directory (mp3/teams/ relative to this file)
-AUDIO_TEAMS_DIR = os.path.join(os.path.dirname(__file__), "..", "mp3", "teams")
+# Audio tracks directories (relative to this file)
+AUDIO_TEAMS_DIR  = os.path.join(os.path.dirname(__file__), "..", "mp3", "teams")
+AUDIO_SPEECH_DIR = os.path.join(os.path.dirname(__file__), "..", "mp3", "speech")

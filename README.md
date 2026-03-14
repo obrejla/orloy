@@ -61,7 +61,7 @@ When the application starts it binds a small HTTP server on **port 8080** (all i
 | Option A / B (NetworkManager) | `http://10.42.0.1:8080/` |
 | Option C (hostapd/dnsmasq) | `http://192.168.4.1:8080/` |
 
-The page displays the current mode (IDLE / RANDOM / MANUAL) and six control sections:
+The page displays the current mode (IDLE / RANDOM / MANUAL) and seven control sections:
 
 | Button / Section | Behaviour                                               |
 |------------------|---------------------------------------------------------|
@@ -70,7 +70,10 @@ The page displays the current mode (IDLE / RANDOM / MANUAL) and six control sect
 | **GEARBOX**      | Held HIGH while pressed, LOW on release                 |
 | **MOTION**       | Tap to toggle PIR motion detection ON / OFF             |
 | **TEAM SOUND**   | Select a track from the dropdown and tap PLAY; tap STOP to stop |
+| **SPEECH**       | Select a speech track and tap PLAY; tap STOP to stop    |
 | **SHUTDOWN**     | Hold for 3 seconds to trigger `sudo shutdown -h now`    |
+
+Both TEAM SOUND and SPEECH share the same audio player.  If one is already playing, a new PLAY request from either section is queued and starts automatically when the current track ends.  All player controls (PLAY, STOP, dropdown) are disabled while any audio is playing or pending.
 
 The page polls `/api/status` every 2 seconds so the mode indicator stays in sync when the mode changes via a physical button.
 
@@ -86,8 +89,11 @@ The page polls `/api/status` every 2 seconds so the mode indicator stays in sync
 | POST   | `/api/pir/toggle`     | Toggle PIR detection ON/OFF; returns `{"pir_enabled": true\|false}` |
 | POST   | `/api/shutdown`       | Trigger `sudo shutdown -h now`                                      |
 | GET    | `/api/audio/tracks`   | Returns `{"tracks": ["cerveni.mp3", …]}`                            |
-| POST   | `/api/audio/play`     | Play a track; body `{"filename": "cerveni.mp3"}`; returns `{"playing": "…"}` |
+| POST   | `/api/audio/play`     | Play a team track; body `{"filename": "cerveni.mp3"}`; returns `{"playing": "…"}` |
 | POST   | `/api/audio/stop`     | Stop playback; returns `{"stopped": true}`                          |
+| GET    | `/api/speech/tracks`  | Returns `{"tracks": ["muhehe.mp3", …]}`                             |
+| POST   | `/api/speech/play`    | Play a speech track; body `{"filename": "muhehe.mp3"}`; returns `{"playing": "…"}` |
+| POST   | `/api/speech/stop`    | Stop playback; returns `{"stopped": true}`                          |
 
 ---
 
@@ -399,7 +405,8 @@ orloy_app/
 │   ├── test_audio_handler.py
 │   └── test_web_handler.py
 ├── mp3/
-│   └── teams/                # MP3 team colour files (cerveni, modri, zeleni, zluti)
+│   ├── teams/                # MP3 team colour files (cerveni, modri, zeleni, zluti)
+│   └── speech/               # MP3 speech files
 ├── main.py                   # Application entry point
 ├── orloy_app.service         # systemd unit file
 └── requirements.txt

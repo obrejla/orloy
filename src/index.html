@@ -118,46 +118,57 @@
       box-shadow: 0 0 18px rgba(244,162,97,0.5);
     }
 
-    /* TEAM SOUND – full width section */
-    #audio-section {
+    /* Shared styles for TEAM SOUND and SPEECH sections */
+    #audio-section, #speech-section {
       grid-column: 1 / -1;
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
     }
-    #audio-section label {
+    #audio-section label, #speech-section label {
       font-size: 0.8rem;
       letter-spacing: 0.14em;
       color: #888;
       text-transform: uppercase;
     }
-    #audio-select {
+    #audio-select, #speech-select {
       width: 100%;
       padding: 0.9rem 1rem;
       border-radius: 10px;
-      border: 2px solid #3a86ff;
       background: #12122a;
       color: #c0c0e0;
       font-size: 0.95rem;
       font-weight: 600;
       cursor: pointer;
     }
-    #audio-controls {
+    #audio-select  { border: 2px solid #3a86ff; }
+    #speech-select { border: 2px solid #06d6a0; }
+    #audio-controls, #speech-controls {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 0.75rem;
     }
-    #btn-audio-play { border-color: #3a86ff; }
+    #btn-audio-play  { border-color: #3a86ff; }
     #btn-audio-play.active {
       background: #3a86ff; color: #fff;
       box-shadow: 0 0 18px rgba(58,134,255,0.5);
     }
-    #btn-audio-stop { border-color: #e63946; }
+    #btn-audio-stop  { border-color: #e63946; }
     #btn-audio-stop.active {
       background: #e63946; color: #fff;
       box-shadow: 0 0 18px rgba(230,57,70,0.5);
     }
-    .btn:disabled, #audio-select:disabled {
+    #btn-speech-play { border-color: #06d6a0; }
+    #btn-speech-play.active {
+      background: #06d6a0; color: #0d0d1a;
+      box-shadow: 0 0 18px rgba(6,214,160,0.5);
+    }
+    #btn-speech-stop { border-color: #e63946; }
+    #btn-speech-stop.active {
+      background: #e63946; color: #fff;
+      box-shadow: 0 0 18px rgba(230,57,70,0.5);
+    }
+    .btn:disabled, #audio-select:disabled, #speech-select:disabled {
       opacity: 0.35;
       cursor: not-allowed;
     }
@@ -198,6 +209,16 @@
         <button class="btn" id="btn-audio-stop" disabled>STOP</button>
       </div>
     </div>
+    <div id="speech-section">
+      <label>Speech</label>
+      <select id="speech-select">
+        <option value="">-- select track --</option>
+      </select>
+      <div id="speech-controls">
+        <button class="btn" id="btn-speech-play">PLAY</button>
+        <button class="btn" id="btn-speech-stop" disabled>STOP</button>
+      </div>
+    </div>
     <button class="btn" id="btn-shutdown"
             style="--hold-ms: 3s;">
       SHUTDOWN (hold 3s)
@@ -213,15 +234,28 @@
     // ------------------------------------------------------------------ //
     // Status polling
     // ------------------------------------------------------------------ //
+
+    // Update all audio-related controls for both players at once.
+    // Both players share the same mixer, so they are locked together.
     function updateAudioUI(playing) {
-      const playBtn = document.getElementById('btn-audio-play');
-      const stopBtn = document.getElementById('btn-audio-stop');
-      const sel     = document.getElementById('audio-select');
-      playBtn.disabled = playing;
-      sel.disabled     = playing;
-      stopBtn.disabled = !playing;
-      playBtn.classList.toggle('active', playing);
-      stopBtn.classList.toggle('active', playing);
+      const audioPlay  = document.getElementById('btn-audio-play');
+      const audioStop  = document.getElementById('btn-audio-stop');
+      const audioSel   = document.getElementById('audio-select');
+      const speechPlay = document.getElementById('btn-speech-play');
+      const speechStop = document.getElementById('btn-speech-stop');
+      const speechSel  = document.getElementById('speech-select');
+
+      audioPlay.disabled  = playing;
+      audioSel.disabled   = playing;
+      audioStop.disabled  = !playing;
+      audioPlay.classList.toggle('active', playing);
+      audioStop.classList.toggle('active', playing);
+
+      speechPlay.disabled = playing;
+      speechSel.disabled  = playing;
+      speechStop.disabled = !playing;
+      speechPlay.classList.toggle('active', playing);
+      speechStop.classList.toggle('active', playing);
     }
 
     function updateUI(data) {
@@ -382,7 +416,50 @@
       } catch (_) {}
     });
 
+    // ------------------------------------------------------------------ //
+    // SPEECH – load tracks on page load, PLAY / STOP
+    // ------------------------------------------------------------------ //
+    async function loadSpeechTracks() {
+      try {
+        const res = await fetch('/api/speech/tracks');
+        if (!res.ok) return;
+        const data = await res.json();
+        const sel = document.getElementById('speech-select');
+        sel.innerHTML = '<option value="">-- select track --</option>';
+        (data.tracks || []).forEach(filename => {
+          const opt = document.createElement('option');
+          opt.value = filename;
+          opt.textContent = filename.replace(/\.mp3$/i, '')
+                                    .replace(/[-_]/g, ' ')
+                                    .replace(/\b\w/g, c => c.toUpperCase());
+          sel.appendChild(opt);
+        });
+      } catch (_) {}
+    }
+
+    document.getElementById('btn-speech-play').addEventListener('click', async () => {
+      const filename = document.getElementById('speech-select').value;
+      if (!filename) return;
+      updateAudioUI(true);   // optimistic: lock controls immediately
+      try {
+        const res = await fetch('/api/speech/play', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename })
+        });
+        if (!res.ok) { updateAudioUI(false); showError(); }
+      } catch (_) { updateAudioUI(false); showError(); }
+    });
+
+    document.getElementById('btn-speech-stop').addEventListener('click', async () => {
+      try {
+        await fetch('/api/speech/stop', { method: 'POST' });
+        updateAudioUI(false);
+      } catch (_) {}
+    });
+
     loadTracks();
+    loadSpeechTracks();
   </script>
 </body>
 </html>

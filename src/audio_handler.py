@@ -2,12 +2,18 @@
 Audio (MP3) playback handler.
 
 Uses pygame.mixer to play MP3 files from a configured directory.
+
+Playback is serialised through an internal queue: if a track is already
+playing when ``play()`` or ``play_from()`` is called, the new request
+replaces any pending item in the queue and plays as soon as the current
+track finishes.  Only one track can be pending at a time (last-write wins).
 """
 
 import logging
 import os
 import re
 import threading
+import time
 from pathlib import Path
 
 # Suppress SDL display requirement so pygame.mixer works headless / as a service.
@@ -52,27 +58,92 @@ class AudioHandler:
     Thread-safe.  Only bare filenames are accepted — path separators in the
     filename argument are rejected to prevent directory traversal.
 
+    Playback is serialised: a new ``play()`` or ``play_from()`` call while a
+    track is already playing queues the incoming track (replacing any
+    previously queued but not-yet-started track).  The queued track starts
+    automatically when the current one ends.
+
     Args:
-        directory: Path to the folder containing MP3 files.
+        directory: Path to the default folder containing MP3 files.
                    Defaults to AUDIO_TEAMS_DIR from config.
     """
 
     def __init__(self, directory: str = AUDIO_TEAMS_DIR) -> None:
         self._lock = threading.Lock()
         self._directory = Path(directory).resolve()
+
+        # Queue state: _next_path holds the next track to play (or None).
+        # Protected by _next_cond.
+        self._next_cond = threading.Condition(threading.Lock())
+        self._next_path: Path | None = None
+
+        self._stop_event = threading.Event()
+        self._closed = False
+
         pygame.mixer.init()
         logger.info(
             "Audio handler ready – directory: %s  (mixer: %s, device: %s)",
             self._directory, pygame.mixer.get_init(), os.environ.get("AUDIODEV", "default"),
         )
 
-    def list_tracks(self) -> list[str]:
-        """Return sorted list of .mp3 filenames in the directory."""
+        self._consumer = threading.Thread(
+            target=self._consume, daemon=True, name="audio-consumer"
+        )
+        self._consumer.start()
+
+    # ------------------------------------------------------------------ #
+    # Internal queue consumer                                              #
+    # ------------------------------------------------------------------ #
+
+    def _consume(self) -> None:
+        """Background thread: waits for queued tracks and plays them."""
+        while not self._stop_event.is_set():
+            with self._next_cond:
+                while self._next_path is None and not self._stop_event.is_set():
+                    self._next_cond.wait(timeout=0.1)
+                if self._stop_event.is_set():
+                    return
+                filepath = self._next_path
+                self._next_path = None
+
+            # Wait for the mixer to finish the current track.
+            while not self._stop_event.is_set() and pygame.mixer.music.get_busy():
+                time.sleep(0.05)
+
+            if self._stop_event.is_set():
+                return
+
+            with self._lock:
+                pygame.mixer.music.load(str(filepath))
+                pygame.mixer.music.play()
+
+    def _enqueue(self, path: Path) -> None:
+        """Replace any pending track with *path* and wake the consumer."""
+        with self._next_cond:
+            self._next_path = path
+            self._next_cond.notify()
+
+    # ------------------------------------------------------------------ #
+    # Public API                                                           #
+    # ------------------------------------------------------------------ #
+
+    def list_tracks(self, directory: Path | None = None) -> list[str]:
+        """Return sorted list of .mp3 filenames in *directory*.
+
+        Args:
+            directory: Directory to list.  Defaults to the handler's own
+                       directory when not provided.
+        """
+        d = Path(directory).resolve() if directory is not None else self._directory
         with self._lock:
-            return sorted(p.name for p in self._directory.glob("*.mp3"))
+            return sorted(p.name for p in d.glob("*.mp3"))
 
     def play(self, filename: str) -> None:
-        """Load and play a track by filename.
+        """Queue a track from the default directory for playback.
+
+        If a track is currently playing the new track will start as soon as
+        it finishes.  Any previously queued (but not yet started) track is
+        replaced.
 
         Args:
             filename: Bare filename (e.g. ``"cerveni.mp3"``).  Must not
@@ -81,29 +152,81 @@ class AudioHandler:
         Raises:
             ValueError: If ``filename`` is empty or contains a path separator.
         """
+        path = self._validate(filename, self._directory)
+        self._enqueue(path)
+        logger.info("Audio: queued %s", filename)
+
+    def play_from(self, filename: str, directory: Path) -> None:
+        """Queue a track from an arbitrary directory for playback.
+
+        Behaves identically to ``play()`` but draws the file from *directory*
+        instead of the default directory.  Shares the same playback queue, so
+        ``play()`` and ``play_from()`` are serialised against each other.
+
+        Args:
+            filename:  Bare filename.  Must not contain path separators.
+            directory: Directory that must contain the file.
+
+        Raises:
+            ValueError: If ``filename`` is empty, contains a path separator,
+                        or resolves outside *directory*.
+        """
+        resolved_dir = Path(directory).resolve()
+        path = self._validate(filename, resolved_dir)
+        self._enqueue(path)
+        logger.info("Audio: queued %s (from %s)", filename, resolved_dir)
+
+    @staticmethod
+    def _validate(filename: str, directory: Path) -> Path:
+        """Return the absolute path for *filename* inside *directory*.
+
+        Raises:
+            ValueError: On empty filename, path separators, or traversal.
+        """
         if not filename or "/" in filename or "\\" in filename:
             raise ValueError(f"Invalid filename: {filename!r}")
-        full_path = self._directory / filename
-        if full_path.parent.resolve() != self._directory:
+        full_path = directory / filename
+        if full_path.parent.resolve() != directory:
             raise ValueError(f"Path traversal attempt: {filename!r}")
-        with self._lock:
-            pygame.mixer.music.load(str(full_path))
-            pygame.mixer.music.play()
-        logger.info("Audio: playing %s", filename)
+        return full_path
 
     @property
     def is_playing(self) -> bool:
-        """True while a track is currently playing."""
-        return bool(pygame.mixer.music.get_busy())
+        """True while a track is playing or one is queued to play next."""
+        with self._next_cond:
+            has_pending = self._next_path is not None
+        return bool(pygame.mixer.music.get_busy()) or has_pending
 
     def stop(self) -> None:
-        """Stop any currently playing audio."""
+        """Stop playback and discard any queued track."""
+        with self._next_cond:
+            self._next_path = None
         with self._lock:
             pygame.mixer.music.stop()
         logger.info("Audio: stopped")
 
     def close(self) -> None:
-        """Stop playback and shut down pygame.mixer."""
-        self.stop()
+        """Stop playback, shut down the consumer thread, and quit pygame.mixer."""
+        if self._closed:
+            return
+        self._closed = True
+        with self._lock:
+            pygame.mixer.music.stop()
+        self._stop_event.set()
+        with self._next_cond:
+            self._next_cond.notify_all()
+        if self._consumer.is_alive():
+            self._consumer.join(timeout=2)
         pygame.mixer.quit()
         logger.info("Audio handler closed")
+
+    def wait_idle(self, timeout: float = 2.0) -> None:
+        """Block until no track is playing or queued.
+
+        Intended for use in tests — not part of the production API.
+        """
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if not self.is_playing:
+                return
+            time.sleep(0.01)

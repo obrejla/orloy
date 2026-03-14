@@ -15,6 +15,7 @@ import threading
 from src.audio_handler import AudioHandler
 from src.config import (
     AUDIO_TEAMS_DIR,
+    AUDIO_SPEECH_DIR,
     MOTOR_FORWARD_PIN,
     MOTOR_BACKWARD_PIN,
     BUTTON_RANDOM_PIN,
@@ -72,6 +73,7 @@ def main() -> None:
         gearbox_output=gpio_handler.gearbox_output,
         pir_handler=pir_handler,
         audio_handler=audio_handler,
+        speech_dir=AUDIO_SPEECH_DIR,
         host=WEB_HOST,
         port=WEB_PORT,
     )
