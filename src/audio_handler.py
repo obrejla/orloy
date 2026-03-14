@@ -79,6 +79,7 @@ class AudioHandler:
 
         self._stop_event = threading.Event()
         self._closed = False
+        self._current_track: str | None = None
 
         pygame.mixer.init()
         logger.info(
@@ -116,6 +117,7 @@ class AudioHandler:
             with self._lock:
                 pygame.mixer.music.load(str(filepath))
                 pygame.mixer.music.play()
+                self._current_track = filepath.name
 
     def _enqueue(self, path: Path) -> None:
         """Replace any pending track with *path* and wake the consumer."""
@@ -181,12 +183,24 @@ class AudioHandler:
             has_pending = self._next_path is not None
         return bool(pygame.mixer.music.get_busy()) or has_pending
 
+    @property
+    def current_track(self) -> str | None:
+        """Filename of the track currently playing (or queued next), or None."""
+        with self._next_cond:
+            if self._next_path is not None:
+                return self._next_path.name
+        with self._lock:
+            if pygame.mixer.music.get_busy():
+                return self._current_track
+        return None
+
     def stop(self) -> None:
         """Stop playback and discard any queued track."""
         with self._next_cond:
             self._next_path = None
         with self._lock:
             pygame.mixer.music.stop()
+            self._current_track = None
         logger.info("Audio: stopped")
 
     def close(self) -> None:

@@ -168,6 +168,15 @@
       background: #e63946; color: #fff;
       box-shadow: 0 0 18px rgba(230,57,70,0.5);
     }
+    #now-playing {
+      grid-column: 1 / -1;
+      min-height: 1.4rem;
+      text-align: center;
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      color: #06d6a0;
+    }
+
     .btn:disabled, #audio-select:disabled, #speech-select:disabled {
       opacity: 0.35;
       cursor: not-allowed;
@@ -219,6 +228,7 @@
         <button class="btn" id="btn-speech-stop" disabled>STOP</button>
       </div>
     </div>
+    <div id="now-playing"></div>
     <button class="btn" id="btn-shutdown"
             style="--hold-ms: 3s;">
       SHUTDOWN (hold 3s)
@@ -277,6 +287,14 @@
       }
       if (data.audio_playing !== undefined) {
         updateAudioUI(data.audio_playing);
+      }
+      if (data.currently_playing !== undefined) {
+        const el = document.getElementById('now-playing');
+        el.textContent = data.currently_playing
+          ? '\u25B6 ' + data.currently_playing
+              .replace(/\.mp3$/i, '')
+              .replace(/[-_]/g, ' ')
+          : '';
       }
     }
 

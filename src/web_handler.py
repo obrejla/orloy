@@ -125,6 +125,7 @@ class WebHandler:
                 payload["pir_enabled"] = self._pir_handler.enabled
             if self._audio_handler is not None:
                 payload["audio_playing"] = self._audio_handler.is_playing
+                payload["currently_playing"] = self._audio_handler.current_track
             return jsonify(payload)
 
         @app.route("/api/toggle_random", methods=["POST"])

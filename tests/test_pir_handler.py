@@ -1,8 +1,11 @@
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
-def _make_pir_handler(initial_enabled=True):
+def _make_pir_handler(initial_enabled=True, audio_handler=None, speech_dir=None):
     """Helper: build a PIRHandler with all gpiozero devices mocked."""
     mock_sensor = MagicMock()
     mock_btn = MagicMock()
@@ -14,7 +17,11 @@ def _make_pir_handler(initial_enabled=True):
         patch("src.pir_handler.LED", return_value=mock_led),
     ):
         from src.pir_handler import PIRHandler
-        handler = PIRHandler(initial_enabled=initial_enabled)
+        handler = PIRHandler(
+            initial_enabled=initial_enabled,
+            audio_handler=audio_handler,
+            speech_dir=speech_dir,
+        )
 
     return handler, mock_sensor, mock_btn, mock_led
 
@@ -131,3 +138,48 @@ class TestPIRHandlerClose(unittest.TestCase):
         handler, _, _, mock_led = _make_pir_handler()
         handler.close()
         mock_led.off.assert_called()
+
+
+class TestPIRHandlerAudio(unittest.TestCase):
+    def _make_with_audio(self, is_playing=False, tracks=None, enabled=True):
+        mock_audio = MagicMock()
+        mock_audio.is_playing = is_playing
+        mock_audio.list_tracks.return_value = tracks if tracks is not None else ["muhehe.mp3"]
+        tmp = tempfile.mkdtemp()
+        handler, _, _, _ = _make_pir_handler(
+            initial_enabled=enabled,
+            audio_handler=mock_audio,
+            speech_dir=tmp,
+        )
+        return handler, mock_audio, tmp
+
+    def test_motion_plays_random_track_when_idle(self):
+        handler, mock_audio, tmp = self._make_with_audio(is_playing=False)
+        handler._on_motion()
+        mock_audio.play.assert_called_once()
+        shutil.rmtree(tmp)
+
+    def test_motion_does_not_play_when_audio_busy(self):
+        handler, mock_audio, tmp = self._make_with_audio(is_playing=True)
+        handler._on_motion()
+        mock_audio.play.assert_not_called()
+        shutil.rmtree(tmp)
+
+    def test_motion_does_not_play_when_disabled(self):
+        handler, mock_audio, tmp = self._make_with_audio(enabled=False)
+        handler._on_motion()
+        mock_audio.play.assert_not_called()
+        shutil.rmtree(tmp)
+
+    def test_motion_plays_from_speech_dir(self):
+        handler, mock_audio, tmp = self._make_with_audio(tracks=["okamzik.mp3"])
+        handler._on_motion()
+        args = mock_audio.play.call_args
+        self.assertEqual(args[0][1], Path(tmp).resolve())
+        shutil.rmtree(tmp)
+
+    def test_motion_no_play_when_no_tracks(self):
+        handler, mock_audio, tmp = self._make_with_audio(tracks=[])
+        handler._on_motion()
+        mock_audio.play.assert_not_called()
+        shutil.rmtree(tmp)

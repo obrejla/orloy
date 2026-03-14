@@ -11,7 +11,9 @@ Detection starts disabled at launch.
 """
 
 import logging
+import random
 import threading
+from pathlib import Path
 
 from gpiozero import Button, LED, MotionSensor
 
@@ -44,9 +46,13 @@ class PIRHandler:
         toggle_pin: int = BUTTON_PIR_TOGGLE_PIN,
         led_pin: int = PIR_LED_PIN,
         initial_enabled: bool = False,
+        audio_handler=None,
+        speech_dir=None,
     ) -> None:
         self._lock = threading.Lock()
         self._enabled = initial_enabled
+        self._audio_handler = audio_handler
+        self._speech_dir = Path(speech_dir).resolve() if speech_dir is not None else None
 
         self._sensor = MotionSensor(sensor_pin)
         self._btn = Button(toggle_pin)
@@ -90,9 +96,20 @@ class PIRHandler:
     def _on_motion(self) -> None:
         with self._lock:
             enabled = self._enabled
-        if enabled:
-            self._led.on()
-            logger.info("PIR: motion detected")
+        if not enabled:
+            return
+        self._led.on()
+        logger.info("PIR: motion detected")
+        if (
+            self._audio_handler is not None
+            and self._speech_dir is not None
+            and not self._audio_handler.is_playing
+        ):
+            tracks = self._audio_handler.list_tracks(self._speech_dir)
+            if tracks:
+                filename = random.choice(tracks)
+                logger.info("PIR: auto-playing %s", filename)
+                self._audio_handler.play(filename, self._speech_dir)
 
     def _on_no_motion(self) -> None:
         self._led.off()

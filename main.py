@@ -63,11 +63,13 @@ def main() -> None:
         gearbox_out_pin=GEARBOX_OUTPUT_PIN,
         shutdown_hold_time=SHUTDOWN_HOLD_TIME,
     )
+    audio_handler = AudioHandler(AUDIO_TEAMS_DIR)
     pir_handler = PIRHandler(
         sensor_pin=PIR_SENSOR_PIN,
         toggle_pin=BUTTON_PIR_TOGGLE_PIN,
+        audio_handler=audio_handler,
+        speech_dir=AUDIO_SPEECH_DIR,
     )
-    audio_handler = AudioHandler(AUDIO_TEAMS_DIR)
     web_handler = WebHandler(
         mode_manager,
         gearbox_output=gpio_handler.gearbox_output,

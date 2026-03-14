@@ -156,6 +156,34 @@ class TestAudioHandlerIsPlaying(unittest.TestCase):
         self.assertTrue(self.handler.is_playing)
 
 
+class TestAudioHandlerCurrentTrack(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.handler, self.mock_pygame, self.patcher = _make_handler(self.tmp)
+
+    def tearDown(self):
+        self.handler.close()
+        self.patcher.stop()
+        shutil.rmtree(self.tmp)
+
+    def test_current_track_none_when_idle(self):
+        self.assertIsNone(self.handler.current_track)
+
+    def test_current_track_returns_queued_filename(self):
+        self.mock_pygame.mixer.music.get_busy.return_value = True
+        (self.tmp / "cerveni.mp3").touch()
+        self.handler.play("cerveni.mp3")
+        self.assertEqual(self.handler.current_track, "cerveni.mp3")
+
+    def test_current_track_none_after_stop(self):
+        self.mock_pygame.mixer.music.get_busy.return_value = True
+        (self.tmp / "cerveni.mp3").touch()
+        self.handler.play("cerveni.mp3")
+        self.handler.stop()
+        self.mock_pygame.mixer.music.get_busy.return_value = False
+        self.assertIsNone(self.handler.current_track)
+
+
 class TestAudioHandlerStop(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()

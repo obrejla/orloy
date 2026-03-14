@@ -216,6 +216,8 @@ class TestWebHandlerTeams(unittest.TestCase):
     def setUp(self):
         self.mock_audio = MagicMock()
         self.mock_audio.list_tracks.return_value = ["cerveni.mp3", "modri.mp3"]
+        self.mock_audio.is_playing = False
+        self.mock_audio.current_track = None
         self.handler, _ = _make_handler(audio_handler=self.mock_audio)
         self.client = self.handler._app.test_client()
 
@@ -235,6 +237,16 @@ class TestWebHandlerTeams(unittest.TestCase):
         client = handler._app.test_client()
         resp = client.get("/api/status")
         self.assertNotIn("audio_playing", resp.get_json())
+
+    def test_status_includes_currently_playing(self):
+        self.mock_audio.current_track = "cerveni.mp3"
+        resp = self.client.get("/api/status")
+        self.assertEqual(resp.get_json()["currently_playing"], "cerveni.mp3")
+
+    def test_status_currently_playing_none_when_idle(self):
+        self.mock_audio.current_track = None
+        resp = self.client.get("/api/status")
+        self.assertIsNone(resp.get_json()["currently_playing"])
 
     def test_get_tracks_returns_list(self):
         resp = self.client.get("/api/teams/tracks")
