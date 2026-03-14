@@ -256,6 +256,11 @@
       speechStop.disabled = !playing;
       speechPlay.classList.toggle('active', playing);
       speechStop.classList.toggle('active', playing);
+
+      if (!playing) {
+        audioSel.value  = '';
+        speechSel.value = '';
+      }
     }
 
     function updateUI(data) {
