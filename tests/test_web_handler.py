@@ -212,7 +212,7 @@ class TestWebHandlerPIR(unittest.TestCase):
         self.assertEqual(resp.status_code, 405)
 
 
-class TestWebHandlerAudio(unittest.TestCase):
+class TestWebHandlerTeams(unittest.TestCase):
     def setUp(self):
         self.mock_audio = MagicMock()
         self.mock_audio.list_tracks.return_value = ["cerveni.mp3", "modri.mp3"]
@@ -237,19 +237,19 @@ class TestWebHandlerAudio(unittest.TestCase):
         self.assertNotIn("audio_playing", resp.get_json())
 
     def test_get_tracks_returns_list(self):
-        resp = self.client.get("/api/audio/tracks")
+        resp = self.client.get("/api/teams/tracks")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.get_json(), {"tracks": ["cerveni.mp3", "modri.mp3"]})
 
     def test_get_tracks_without_handler_returns_empty(self):
         handler, _ = _make_handler(audio_handler=None)
         client = handler._app.test_client()
-        resp = client.get("/api/audio/tracks")
+        resp = client.get("/api/teams/tracks")
         self.assertEqual(resp.get_json(), {"tracks": []})
 
     def test_play_calls_handler(self):
         resp = self.client.post(
-            "/api/audio/play",
+            "/api/teams/play",
             json={"filename": "cerveni.mp3"},
             content_type="application/json",
         )
@@ -257,38 +257,38 @@ class TestWebHandlerAudio(unittest.TestCase):
         self.mock_audio.play.assert_called_once_with("cerveni.mp3")
 
     def test_play_returns_playing_filename(self):
-        resp = self.client.post("/api/audio/play", json={"filename": "modri.mp3"})
+        resp = self.client.post("/api/teams/play", json={"filename": "modri.mp3"})
         self.assertEqual(resp.get_json(), {"playing": "modri.mp3"})
 
     def test_play_invalid_filename_returns_400(self):
         self.mock_audio.play.side_effect = ValueError("invalid")
-        resp = self.client.post("/api/audio/play", json={"filename": "../evil.mp3"})
+        resp = self.client.post("/api/teams/play", json={"filename": "../evil.mp3"})
         self.assertEqual(resp.status_code, 400)
 
     def test_play_without_handler_returns_503(self):
         handler, _ = _make_handler(audio_handler=None)
         client = handler._app.test_client()
-        resp = client.post("/api/audio/play", json={"filename": "cerveni.mp3"})
+        resp = client.post("/api/teams/play", json={"filename": "cerveni.mp3"})
         self.assertEqual(resp.status_code, 503)
 
     def test_stop_calls_handler(self):
-        resp = self.client.post("/api/audio/stop")
+        resp = self.client.post("/api/teams/stop")
         self.assertEqual(resp.status_code, 200)
         self.mock_audio.stop.assert_called_once()
 
     def test_stop_without_handler_is_noop(self):
         handler, _ = _make_handler(audio_handler=None)
         client = handler._app.test_client()
-        resp = client.post("/api/audio/stop")
+        resp = client.post("/api/teams/stop")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.get_json(), {"stopped": True})
 
     def test_play_get_not_allowed(self):
-        resp = self.client.get("/api/audio/play")
+        resp = self.client.get("/api/teams/play")
         self.assertEqual(resp.status_code, 405)
 
     def test_stop_get_not_allowed(self):
-        resp = self.client.get("/api/audio/stop")
+        resp = self.client.get("/api/teams/stop")
         self.assertEqual(resp.status_code, 405)
 
 
@@ -328,10 +328,10 @@ class TestWebHandlerSpeech(unittest.TestCase):
         resp = client.get("/api/speech/tracks")
         self.assertEqual(resp.get_json(), {"tracks": []})
 
-    def test_play_calls_play_from(self):
+    def test_play_calls_play(self):
         resp = self.client.post("/api/speech/play", json={"filename": "muhehe.mp3"})
         self.assertEqual(resp.status_code, 200)
-        self.mock_audio.play_from.assert_called_once_with(
+        self.mock_audio.play.assert_called_once_with(
             "muhehe.mp3", Path(self.tmp).resolve()
         )
 
@@ -340,7 +340,7 @@ class TestWebHandlerSpeech(unittest.TestCase):
         self.assertEqual(resp.get_json(), {"playing": "okamzik.mp3"})
 
     def test_play_invalid_filename_returns_400(self):
-        self.mock_audio.play_from.side_effect = ValueError("invalid")
+        self.mock_audio.play.side_effect = ValueError("invalid")
         resp = self.client.post("/api/speech/play", json={"filename": "../evil.mp3"})
         self.assertEqual(resp.status_code, 400)
 

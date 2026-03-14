@@ -72,19 +72,30 @@ class TestAudioHandlerListTracks(unittest.TestCase):
 class TestAudioHandlerPlay(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
+        self.other = Path(tempfile.mkdtemp())
         (self.tmp / "cerveni.mp3").touch()
+        (self.other / "muhehe.mp3").touch()
         self.handler, self.mock_pygame, self.patcher = _make_handler(self.tmp)
 
     def tearDown(self):
         self.handler.close()
         self.patcher.stop()
         shutil.rmtree(self.tmp)
+        shutil.rmtree(self.other)
 
-    def test_play_calls_load_and_play(self):
+    def test_play_default_dir_calls_load_and_play(self):
         self.handler.play("cerveni.mp3")
         self.handler.wait_idle()
         self.mock_pygame.mixer.music.load.assert_called_once_with(
             str(self.tmp.resolve() / "cerveni.mp3")
+        )
+        self.mock_pygame.mixer.music.play.assert_called_once()
+
+    def test_play_explicit_dir_calls_load_with_correct_path(self):
+        self.handler.play("muhehe.mp3", self.other)
+        self.handler.wait_idle()
+        self.mock_pygame.mixer.music.load.assert_called_once_with(
+            str(self.other.resolve() / "muhehe.mp3")
         )
         self.mock_pygame.mixer.music.play.assert_called_once()
 
@@ -100,43 +111,19 @@ class TestAudioHandlerPlay(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.handler.play("sub\\file.mp3")
 
-
-class TestAudioHandlerPlayFrom(unittest.TestCase):
-    def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp())
-        self.other = Path(tempfile.mkdtemp())
-        (self.other / "muhehe.mp3").touch()
-        self.handler, self.mock_pygame, self.patcher = _make_handler(self.tmp)
-
-    def tearDown(self):
-        self.handler.close()
-        self.patcher.stop()
-        shutil.rmtree(self.tmp)
-        shutil.rmtree(self.other)
-
-    def test_play_from_calls_load_with_correct_path(self):
-        self.handler.play_from("muhehe.mp3", self.other)
-        self.handler.wait_idle()
-        self.mock_pygame.mixer.music.load.assert_called_once_with(
-            str(self.other.resolve() / "muhehe.mp3")
-        )
-        self.mock_pygame.mixer.music.play.assert_called_once()
-
-    def test_play_from_empty_filename_raises(self):
+    def test_empty_filename_with_explicit_dir_raises(self):
         with self.assertRaises(ValueError):
-            self.handler.play_from("", self.other)
+            self.handler.play("", self.other)
 
-    def test_play_from_slash_in_filename_raises(self):
+    def test_slash_in_filename_with_explicit_dir_raises(self):
         with self.assertRaises(ValueError):
-            self.handler.play_from("../evil.mp3", self.other)
+            self.handler.play("../evil.mp3", self.other)
 
-    def test_play_from_plays_after_current_track(self):
-        # First enqueue a teams track and let it play.
-        (self.tmp / "cerveni.mp3").touch()
+    def test_explicit_dir_plays_after_default_dir(self):
+        # Enqueue a teams track, let it play, then enqueue a speech track.
         self.handler.play("cerveni.mp3")
         self.handler.wait_idle()
-        # Then enqueue a speech track and verify it also plays.
-        self.handler.play_from("muhehe.mp3", self.other)
+        self.handler.play("muhehe.mp3", self.other)
         self.handler.wait_idle()
         load_calls = [c.args[0] for c in self.mock_pygame.mixer.music.load.call_args_list]
         self.assertIn(str(self.other.resolve() / "muhehe.mp3"), load_calls)

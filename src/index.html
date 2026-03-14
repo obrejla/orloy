@@ -380,7 +380,7 @@
     // ------------------------------------------------------------------ //
     async function loadTracks() {
       try {
-        const res = await fetch('/api/audio/tracks');
+        const res = await fetch('/api/teams/tracks');
         if (!res.ok) return;
         const data = await res.json();
         const sel = document.getElementById('audio-select');
@@ -400,7 +400,7 @@
       if (!filename) return;
       updateAudioUI(true);   // optimistic: lock controls immediately
       try {
-        const res = await fetch('/api/audio/play', {
+        const res = await fetch('/api/teams/play', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ filename })
@@ -411,7 +411,7 @@
 
     document.getElementById('btn-audio-stop').addEventListener('click', async () => {
       try {
-        await fetch('/api/audio/stop', { method: 'POST' });
+        await fetch('/api/teams/stop', { method: 'POST' });
         updateAudioUI(false);
       } catch (_) {}
     });

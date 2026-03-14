@@ -14,14 +14,14 @@ REST API:
     POST /api/gearbox/off      – drive gearbox output LOW
     POST /api/pir/toggle       – toggle PIR motion detection on/off
     POST /api/shutdown         – trigger OS shutdown
-    GET  /api/audio/tracks     – list team MP3 filenames
-    POST /api/audio/play       – play a team track  {"filename": "cerveni.mp3"}
-    POST /api/audio/stop       – stop playback
+    GET  /api/teams/tracks     – list team MP3 filenames
+    POST /api/teams/play       – play a team track  {"filename": "cerveni.mp3"}
+    POST /api/teams/stop       – stop playback
     GET  /api/speech/tracks    – list speech MP3 filenames
     POST /api/speech/play      – play a speech track  {"filename": "muhehe.mp3"}
     POST /api/speech/stop      – stop playback
 
-Both audio and speech routes share the same AudioHandler instance, so all
+Both teams and speech routes share the same AudioHandler instance, so all
 playback is serialised: a new play request waits until the current track
 finishes before starting.
 """
@@ -167,13 +167,13 @@ class WebHandler:
 
         # ---- Team audio ----
 
-        @app.route("/api/audio/tracks")
-        def audio_tracks():
+        @app.route("/api/teams/tracks")
+        def teams_tracks():
             tracks = self._audio_handler.list_tracks() if self._audio_handler is not None else []
             return jsonify({"tracks": tracks})
 
-        @app.route("/api/audio/play", methods=["POST"])
-        def audio_play():
+        @app.route("/api/teams/play", methods=["POST"])
+        def teams_play():
             if self._audio_handler is None:
                 return jsonify({"error": "no audio handler"}), 503
             body = request.get_json(silent=True) or {}
@@ -184,8 +184,8 @@ class WebHandler:
             except ValueError as exc:
                 return jsonify({"error": str(exc)}), 400
 
-        @app.route("/api/audio/stop", methods=["POST"])
-        def audio_stop():
+        @app.route("/api/teams/stop", methods=["POST"])
+        def teams_stop():
             if self._audio_handler is not None:
                 self._audio_handler.stop()
             return jsonify({"stopped": True})
@@ -206,7 +206,7 @@ class WebHandler:
             body = request.get_json(silent=True) or {}
             filename = body.get("filename", "")
             try:
-                self._audio_handler.play_from(filename, self._speech_dir)
+                self._audio_handler.play(filename, self._speech_dir)
                 return jsonify({"playing": filename})
             except ValueError as exc:
                 return jsonify({"error": str(exc)}), 400

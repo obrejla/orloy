@@ -88,9 +88,9 @@ The page polls `/api/status` every 2 seconds so the mode indicator stays in sync
 | POST   | `/api/gearbox/off`    | Drive gearbox output LOW                                            |
 | POST   | `/api/pir/toggle`     | Toggle PIR detection ON/OFF; returns `{"pir_enabled": true\|false}` |
 | POST   | `/api/shutdown`       | Trigger `sudo shutdown -h now`                                      |
-| GET    | `/api/audio/tracks`   | Returns `{"tracks": ["cerveni.mp3", …]}`                            |
-| POST   | `/api/audio/play`     | Play a team track; body `{"filename": "cerveni.mp3"}`; returns `{"playing": "…"}` |
-| POST   | `/api/audio/stop`     | Stop playback; returns `{"stopped": true}`                          |
+| GET    | `/api/teams/tracks`   | Returns `{"tracks": ["cerveni.mp3", …]}`                            |
+| POST   | `/api/teams/play`     | Play a team track; body `{"filename": "cerveni.mp3"}`; returns `{"playing": "…"}` |
+| POST   | `/api/teams/stop`     | Stop playback; returns `{"stopped": true}`                          |
 | GET    | `/api/speech/tracks`  | Returns `{"tracks": ["muhehe.mp3", …]}`                             |
 | POST   | `/api/speech/play`    | Play a speech track; body `{"filename": "muhehe.mp3"}`; returns `{"playing": "…"}` |
 | POST   | `/api/speech/stop`    | Stop playback; returns `{"stopped": true}`                          |

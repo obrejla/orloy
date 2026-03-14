@@ -4,9 +4,9 @@ Audio (MP3) playback handler.
 Uses pygame.mixer to play MP3 files from a configured directory.
 
 Playback is serialised through an internal queue: if a track is already
-playing when ``play()`` or ``play_from()`` is called, the new request
-replaces any pending item in the queue and plays as soon as the current
-track finishes.  Only one track can be pending at a time (last-write wins).
+playing when ``play()`` is called, the new request replaces any pending
+item in the queue and plays as soon as the current track finishes.
+Only one track can be pending at a time (last-write wins).
 """
 
 import logging
@@ -58,10 +58,10 @@ class AudioHandler:
     Thread-safe.  Only bare filenames are accepted — path separators in the
     filename argument are rejected to prevent directory traversal.
 
-    Playback is serialised: a new ``play()`` or ``play_from()`` call while a
-    track is already playing queues the incoming track (replacing any
-    previously queued but not-yet-started track).  The queued track starts
-    automatically when the current one ends.
+    Playback is serialised: a new ``play()`` call while a track is already
+    playing queues the incoming track (replacing any previously queued but
+    not-yet-started track).  The queued track starts automatically when the
+    current one ends.
 
     Args:
         directory: Path to the default folder containing MP3 files.
@@ -138,43 +138,27 @@ class AudioHandler:
         with self._lock:
             return sorted(p.name for p in d.glob("*.mp3"))
 
-    def play(self, filename: str) -> None:
-        """Queue a track from the default directory for playback.
+    def play(self, filename: str, directory: Path | None = None) -> None:
+        """Queue a track for playback.
 
         If a track is currently playing the new track will start as soon as
         it finishes.  Any previously queued (but not yet started) track is
         replaced.
 
         Args:
-            filename: Bare filename (e.g. ``"cerveni.mp3"``).  Must not
-                      contain path separators.
-
-        Raises:
-            ValueError: If ``filename`` is empty or contains a path separator.
-        """
-        path = self._validate(filename, self._directory)
-        self._enqueue(path)
-        logger.info("Audio: queued %s", filename)
-
-    def play_from(self, filename: str, directory: Path) -> None:
-        """Queue a track from an arbitrary directory for playback.
-
-        Behaves identically to ``play()`` but draws the file from *directory*
-        instead of the default directory.  Shares the same playback queue, so
-        ``play()`` and ``play_from()`` are serialised against each other.
-
-        Args:
-            filename:  Bare filename.  Must not contain path separators.
-            directory: Directory that must contain the file.
+            filename:  Bare filename (e.g. ``"cerveni.mp3"``).  Must not
+                       contain path separators.
+            directory: Directory that must contain the file.  Defaults to
+                       the handler's own directory when not provided.
 
         Raises:
             ValueError: If ``filename`` is empty, contains a path separator,
                         or resolves outside *directory*.
         """
-        resolved_dir = Path(directory).resolve()
-        path = self._validate(filename, resolved_dir)
+        d = Path(directory).resolve() if directory is not None else self._directory
+        path = self._validate(filename, d)
         self._enqueue(path)
-        logger.info("Audio: queued %s (from %s)", filename, resolved_dir)
+        logger.info("Audio: queued %s", filename)
 
     @staticmethod
     def _validate(filename: str, directory: Path) -> Path:
