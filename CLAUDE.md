@@ -14,8 +14,11 @@ python -m pytest tests/test_mode_manager.py -v
 # Run a single test case
 python -m pytest tests/test_mode_manager.py::TestManualMode::test_toggle_manual_enters_manual_mode -v
 
-# Run the application (Raspberry Pi only)
+# Run the application (Raspberry Pi)
 python main.py
+
+# Run on a dev host without hardware (mock GPIO; e.g. macOS)
+python dev_run.py            # add ORLOY_DEV_AUDIO=1 for real audio output
 ```
 
 ## Architecture
@@ -33,13 +36,18 @@ Web (HTTP)    ──┘         │
 Web (HTTP)    ──▶  AudioHandler  ──▶  pygame.mixer
               (teams + speech routes share one AudioHandler instance;
                playback is serialised through an internal queue)
+
+Web (HTTP)    ──┐
+                ├──▶  SpeechDirectory  (active mp3/<folder>; shared source of truth)
+PIRHandler    ──┘     (web selects the folder; motion reads it on each event)
 ```
 
 - **`ModeManager`** (`src/mode_manager.py`) is the single source of truth for state (IDLE / RANDOM / MANUAL). It is thread-safe (`threading.Lock`). The random loop runs in a daemon thread and uses `threading.Event.wait()` so it wakes immediately when stopped.
 - **`GPIOHandler`** (`src/gpio_handler.py`) wires `gpiozero.Button` callbacks → `ModeManager`. It owns the shared `gearbox_output` (`OutputDevice`) as a public attribute so `WebHandler` can reuse it.
 - **`WebHandler`** (`src/web_handler.py`) serves `src/index.html` and a REST API over HTTP (default port 8080). Runs a Werkzeug server in a daemon thread. Shutdown hold is implemented client-side in JavaScript.
-- **`PIRHandler`** (`src/pir_handler.py`) manages a `gpiozero.MotionSensor` on GPIO 12, a toggle button on GPIO 16, and a `gpiozero.LED` indicator on GPIO 20. Detection is OFF at startup; logs motion events when enabled and turns the LED on during motion (off when motion stops). Exposes `toggle()` and `enabled` for the web API.
-- **`AudioHandler`** (`src/audio_handler.py`) plays MP3 files via `pygame.mixer`. Thread-safe. No GPIO pins. A single shared instance handles both the Teams (`mp3/teams/`) and Speech (`mp3/speech/`) players. Playback requests are serialised through an internal condition-variable queue: a new `play()` or `play_from()` call while a track is already playing waits in queue until it finishes. Exposes `list_tracks(directory?)`, `play(filename)`, `play_from(filename, directory)`, `stop()`, and `close()`.
+- **`PIRHandler`** (`src/pir_handler.py`) manages a `gpiozero.MotionSensor` on GPIO 12, a toggle button on GPIO 16, and a `gpiozero.LED` indicator on GPIO 20. Detection is OFF at startup; logs motion events when enabled and turns the LED on during motion (off when motion stops). When enabled, motion auto-plays a random track from the **currently selected speech folder** (read from the shared `SpeechDirectory` on each event, so it follows web-driven folder changes). Exposes `toggle()` and `enabled` for the web API.
+- **`AudioHandler`** (`src/audio_handler.py`) plays MP3 files via `pygame.mixer`. Thread-safe. No GPIO pins. A single shared instance handles both the Teams (`mp3/teams/`) and Speech players. Playback requests are serialised through an internal condition-variable queue: a new `play()` call while a track is already playing waits in queue until it finishes. Directory-agnostic: `list_tracks(directory?)` and `play(filename, directory?)` accept a per-call directory. Exposes `list_tracks(directory?)`, `play(filename, directory?)`, `stop()`, and `close()`.
+- **`SpeechDirectory`** (`src/speech_directory.py`) is the thread-safe single source of truth for the *active* speech sub-folder under `mp3/` (`AUDIO_MP3_ROOT`). One shared instance is injected into both `WebHandler` (which lets the user switch folders) and `PIRHandler` (which reads the active folder on motion). `list_dirs()` returns selectable sub-folders excluding `SPEECH_DIR_EXCLUDE` (`teams`); `set_name()` validates against traversal/exclusion. Defaults to `speech`; selection is in-memory and resets on restart.
 - **`MotorController`** (`src/motor_controller.py`) is a thin wrapper around `gpiozero.Motor` to make it easily mockable.
 - **`config.py`** (`src/config.py`) holds all GPIO pin numbers, timing constants, and web server settings (`WEB_HOST`, `WEB_PORT`).
 

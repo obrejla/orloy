@@ -17,13 +17,19 @@ REST API:
     GET  /api/teams/tracks     – list team MP3 filenames
     POST /api/teams/play       – play a team track  {"filename": "cerveni.mp3"}
     POST /api/teams/stop       – stop playback
-    GET  /api/speech/tracks    – list speech MP3 filenames
+    GET  /api/speech/dirs      – list selectable speech folders + current selection
+    POST /api/speech/dir       – select active speech folder  {"directory": "speech"}
+    GET  /api/speech/tracks    – list MP3 filenames in the active speech folder
     POST /api/speech/play      – play a speech track  {"filename": "muhehe.mp3"}
     POST /api/speech/stop      – stop playback
 
 Both teams and speech routes share the same AudioHandler instance, so all
 playback is serialised: a new play request waits until the current track
 finishes before starting.
+
+The speech routes act on the folder currently selected in the shared
+SpeechDirectory; selecting a new folder also changes the folder PIR motion
+auto-play draws from.
 """
 
 import logging
@@ -60,9 +66,9 @@ class WebHandler:
         pir_handler:     PIRHandler instance, or None.
         audio_handler:   AudioHandler instance shared by both the Teams and
                          Speech players, or None to disable audio entirely.
-        speech_dir:      Path to the speech MP3 directory.  Required when
-                         ``audio_handler`` is provided and speech playback is
-                         desired; ignored otherwise.
+        speech_directory: Shared SpeechDirectory holder selecting the active
+                         speech folder.  Required when ``audio_handler`` is
+                         provided and speech playback is desired; ignored otherwise.
         host:            Address to bind (default "0.0.0.0" – all interfaces).
         port:            TCP port (default 8080).
         _start:          Internal flag; set False in tests to skip launching
@@ -75,7 +81,7 @@ class WebHandler:
         gearbox_output=None,
         pir_handler=None,
         audio_handler=None,
-        speech_dir=None,
+        speech_directory=None,
         host: str = WEB_HOST,
         port: int = WEB_PORT,
         _start: bool = True,
@@ -84,7 +90,7 @@ class WebHandler:
         self._gearbox_output = gearbox_output
         self._pir_handler = pir_handler
         self._audio_handler = audio_handler
-        self._speech_dir = Path(speech_dir).resolve() if speech_dir is not None else None
+        self._speech_directory = speech_directory
         self._host = host
         self._port = port
         self._server = None
@@ -193,21 +199,45 @@ class WebHandler:
 
         # ---- Speech audio ----
 
+        @app.route("/api/speech/dirs")
+        def speech_dirs():
+            if self._speech_directory is None:
+                return jsonify({"dirs": [], "current": None})
+            return jsonify(
+                {
+                    "dirs": self._speech_directory.list_dirs(),
+                    "current": self._speech_directory.name,
+                }
+            )
+
+        @app.route("/api/speech/dir", methods=["POST"])
+        def speech_dir():
+            if self._speech_directory is None:
+                return jsonify({"error": "no speech handler"}), 503
+            body = request.get_json(silent=True) or {}
+            directory = body.get("directory", "")
+            try:
+                self._speech_directory.set_name(directory)
+                logger.info("Web: speech folder set to %s", directory)
+                return jsonify({"directory": directory})
+            except ValueError as exc:
+                return jsonify({"error": str(exc)}), 400
+
         @app.route("/api/speech/tracks")
         def speech_tracks():
-            if self._audio_handler is None or self._speech_dir is None:
+            if self._audio_handler is None or self._speech_directory is None:
                 return jsonify({"tracks": []})
-            tracks = self._audio_handler.list_tracks(self._speech_dir)
+            tracks = self._audio_handler.list_tracks(self._speech_directory.current_path())
             return jsonify({"tracks": tracks})
 
         @app.route("/api/speech/play", methods=["POST"])
         def speech_play():
-            if self._audio_handler is None or self._speech_dir is None:
+            if self._audio_handler is None or self._speech_directory is None:
                 return jsonify({"error": "no speech handler"}), 503
             body = request.get_json(silent=True) or {}
             filename = body.get("filename", "")
             try:
-                self._audio_handler.play(filename, self._speech_dir)
+                self._audio_handler.play(filename, self._speech_directory.current_path())
                 return jsonify({"playing": filename})
             except ValueError as exc:
                 return jsonify({"error": str(exc)}), 400

@@ -13,7 +13,6 @@ Detection starts disabled at launch.
 import logging
 import random
 import threading
-from pathlib import Path
 
 from gpiozero import Button, LED, MotionSensor
 
@@ -38,6 +37,11 @@ class PIRHandler:
         toggle_pin:      GPIO pin connected to the toggle button (default GPIO 16).
         led_pin:         GPIO pin connected to the motion LED (default GPIO 20).
         initial_enabled: Whether detection starts enabled (default False).
+        audio_handler:   AudioHandler used to auto-play a track on motion, or None.
+        speech_directory: Shared SpeechDirectory holder; motion auto-play draws a
+                         random track from its currently selected folder.  Read on
+                         each motion event, so it follows web-driven folder changes.
+                         None disables motion audio.
     """
 
     def __init__(
@@ -47,12 +51,12 @@ class PIRHandler:
         led_pin: int = PIR_LED_PIN,
         initial_enabled: bool = False,
         audio_handler=None,
-        speech_dir=None,
+        speech_directory=None,
     ) -> None:
         self._lock = threading.Lock()
         self._enabled = initial_enabled
         self._audio_handler = audio_handler
-        self._speech_dir = Path(speech_dir).resolve() if speech_dir is not None else None
+        self._speech_directory = speech_directory
 
         self._sensor = MotionSensor(sensor_pin)
         self._btn = Button(toggle_pin)
@@ -102,14 +106,15 @@ class PIRHandler:
         logger.info("PIR: motion detected")
         if (
             self._audio_handler is not None
-            and self._speech_dir is not None
+            and self._speech_directory is not None
             and not self._audio_handler.is_playing
         ):
-            tracks = self._audio_handler.list_tracks(self._speech_dir)
+            directory = self._speech_directory.current_path()
+            tracks = self._audio_handler.list_tracks(directory)
             if tracks:
                 filename = random.choice(tracks)
                 logger.info("PIR: auto-playing %s", filename)
-                self._audio_handler.play(filename, self._speech_dir)
+                self._audio_handler.play(filename, directory)
 
     def _on_no_motion(self) -> None:
         self._led.off()

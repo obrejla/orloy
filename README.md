@@ -70,10 +70,12 @@ The page displays the current mode (IDLE / RANDOM / MANUAL) and seven control se
 | **GEARBOX**      | Held HIGH while pressed, LOW on release                 |
 | **MOTION**       | Tap to toggle PIR motion detection ON / OFF             |
 | **TEAM SOUND**   | Select a track from the dropdown and tap PLAY; tap STOP to stop |
-| **SPEECH**       | Select a speech track and tap PLAY; tap STOP to stop    |
+| **SPEECH**       | Pick a folder, select a track, and tap PLAY; tap STOP to stop |
 | **SHUTDOWN**     | Hold for 3 seconds to trigger `sudo shutdown -h now`    |
 
-Both TEAM SOUND and SPEECH share the same audio player.  If one is already playing, a new PLAY request from either section is queued and starts automatically when the current track ends.  All player controls (PLAY, STOP, dropdown) are disabled while any audio is playing or pending.
+The SPEECH section has a **folder** dropdown listing the sub-folders of `mp3/` (the `teams/` folder is excluded — it is the separate TEAM SOUND player).  Selecting a folder loads its tracks for manual PLAY **and** changes the folder PIR motion auto-play draws from.  The selection lives on the server (so motion and the web UI agree) and resets to `speech` on restart.
+
+Both TEAM SOUND and SPEECH share the same audio player.  If one is already playing, a new PLAY request from either section is queued and starts automatically when the current track ends.  All player controls (PLAY, STOP, dropdowns) are disabled while any audio is playing or pending.
 
 The page polls `/api/status` every 2 seconds so the mode indicator stays in sync when the mode changes via a physical button.
 
@@ -91,8 +93,10 @@ The page polls `/api/status` every 2 seconds so the mode indicator stays in sync
 | GET    | `/api/teams/tracks`   | Returns `{"tracks": ["cerveni.mp3", …]}`                            |
 | POST   | `/api/teams/play`     | Play a team track; body `{"filename": "cerveni.mp3"}`; returns `{"playing": "…"}` |
 | POST   | `/api/teams/stop`     | Stop playback; returns `{"stopped": true}`                          |
-| GET    | `/api/speech/tracks`  | Returns `{"tracks": ["muhehe.mp3", …]}`                             |
-| POST   | `/api/speech/play`    | Play a speech track; body `{"filename": "muhehe.mp3"}`; returns `{"playing": "…"}` |
+| GET    | `/api/speech/dirs`    | Returns `{"dirs": ["speech", …], "current": "speech"}` (excludes `teams`) |
+| POST   | `/api/speech/dir`     | Select active speech folder; body `{"directory": "speech"}`; returns `{"directory": "…"}` |
+| GET    | `/api/speech/tracks`  | Returns `{"tracks": ["muhehe.mp3", …]}` for the active folder       |
+| POST   | `/api/speech/play`    | Play a track from the active folder; body `{"filename": "muhehe.mp3"}`; returns `{"playing": "…"}` |
 | POST   | `/api/speech/stop`    | Stop playback; returns `{"stopped": true}`                          |
 
 ---
@@ -382,6 +386,20 @@ venv/bin/pip install -r requirements.txt
 venv/bin/python -m pytest tests/ -v
 ```
 
+## Running on a non-Pi host (development)
+
+`main.py` targets the Pi.  On a dev machine (e.g. macOS) use `dev_run.py`, which
+substitutes a PWM-capable mock GPIO factory so the app boots without hardware:
+
+```bash
+python dev_run.py                    # silent audio (no audio device needed)
+ORLOY_DEV_AUDIO=1 python dev_run.py  # real audio output (CoreAudio on macOS)
+```
+
+Then open <http://localhost:8080/>.  The motor, gearbox, PIR sensor and LED are
+backed by mock pins, but the web UI, the speech-folder selector and audio
+playback work for end-to-end manual testing.
+
 ---
 
 ## Project structure
@@ -395,6 +413,7 @@ orloy_app/
 │   ├── gpio_handler.py       # Physical GPIO button callbacks
 │   ├── pir_handler.py        # PIR motion sensor + detection toggle
 │   ├── audio_handler.py      # MP3 playback via pygame.mixer
+│   ├── speech_directory.py   # Shared, switchable active speech folder
 │   ├── web_handler.py        # HTTP control panel (Flask/Werkzeug)
 │   └── index.html            # Browser UI served by web_handler
 ├── tests/
@@ -403,11 +422,14 @@ orloy_app/
 │   ├── test_gpio_handler.py
 │   ├── test_pir_handler.py
 │   ├── test_audio_handler.py
+│   ├── test_speech_directory.py
 │   └── test_web_handler.py
 ├── mp3/
-│   ├── teams/                # MP3 team colour files (cerveni, modri, zeleni, zluti)
-│   └── speech/               # MP3 speech files
-├── main.py                   # Application entry point
+│   ├── teams/                # MP3 team colour files (cerveni, modri, zeleni, zluti) — separate TEAM SOUND player
+│   ├── speech/               # Default speech folder (selectable in the UI)
+│   └── …/                    # Any further sub-folders are selectable speech folders
+├── main.py                   # Application entry point (Raspberry Pi)
+├── dev_run.py                # Dev-only launcher for non-Pi hosts (mock GPIO)
 ├── orloy_app.service         # systemd unit file
 └── requirements.txt
 ```

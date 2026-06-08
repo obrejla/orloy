@@ -35,5 +35,12 @@ RANDOM_PAUSE_MIN_SEC = 60.0    # 1 minute
 RANDOM_PAUSE_MAX_SEC = 600.0   # 10 minutes
 
 # Audio tracks directories (relative to this file)
-AUDIO_TEAMS_DIR  = os.path.join(os.path.dirname(__file__), "..", "mp3", "teams")
-AUDIO_SPEECH_DIR = os.path.join(os.path.dirname(__file__), "..", "mp3", "speech")
+AUDIO_MP3_ROOT  = os.path.join(os.path.dirname(__file__), "..", "mp3")
+AUDIO_TEAMS_DIR = os.path.join(AUDIO_MP3_ROOT, "teams")
+
+# Speech playback folder selection.  The speech player and PIR motion auto-play
+# draw from a sub-folder of AUDIO_MP3_ROOT that the user can switch at runtime
+# from the web UI.  DEFAULT_SPEECH_SUBDIR is selected at startup; folders listed
+# in SPEECH_DIR_EXCLUDE are hidden from the selector (e.g. the separate teams player).
+DEFAULT_SPEECH_SUBDIR = "speech"
+SPEECH_DIR_EXCLUDE = ("teams",)
