@@ -15,7 +15,7 @@ import threading
 from src.audio_handler import AudioHandler
 from src.config import (
     AUDIO_TEAMS_DIR,
-    AUDIO_SPEECH_DIR,
+    AUDIO_MP3_ROOT,
     MOTOR_FORWARD_PIN,
     MOTOR_BACKWARD_PIN,
     BUTTON_RANDOM_PIN,
@@ -33,17 +33,22 @@ from src.gpio_handler import GPIOHandler
 from src.mode_manager import ModeManager
 from src.motor_controller import MotorController
 from src.pir_handler import PIRHandler
+from src.speech_directory import SpeechDirectory
 from src.web_handler import WebHandler
 
 
 def _configure_logging() -> None:
+    handlers = [logging.StreamHandler()]
+    # Log to file on the Pi; fall back to console-only where the path is not
+    # writable (e.g. a dev machine without /var/log access).
+    try:
+        handlers.append(logging.FileHandler("/var/log/orloy_app.log"))
+    except OSError:
+        pass
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s  %(name)-30s  %(levelname)-8s  %(message)s",
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler("/var/log/orloy_app.log"),
-        ],
+        handlers=handlers,
     )
 
 
@@ -64,18 +69,19 @@ def main() -> None:
         shutdown_hold_time=SHUTDOWN_HOLD_TIME,
     )
     audio_handler = AudioHandler(AUDIO_TEAMS_DIR)
+    speech_directory = SpeechDirectory(AUDIO_MP3_ROOT)
     pir_handler = PIRHandler(
         sensor_pin=PIR_SENSOR_PIN,
         toggle_pin=BUTTON_PIR_TOGGLE_PIN,
         audio_handler=audio_handler,
-        speech_dir=AUDIO_SPEECH_DIR,
+        speech_directory=speech_directory,
     )
     web_handler = WebHandler(
         mode_manager,
         gearbox_output=gpio_handler.gearbox_output,
         pir_handler=pir_handler,
         audio_handler=audio_handler,
-        speech_dir=AUDIO_SPEECH_DIR,
+        speech_directory=speech_directory,
         host=WEB_HOST,
         port=WEB_PORT,
     )

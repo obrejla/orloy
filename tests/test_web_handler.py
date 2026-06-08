@@ -12,7 +12,7 @@ def _make_handler(
     gearbox_output=None,
     pir_handler=None,
     audio_handler=None,
-    speech_dir=None,
+    speech_directory=None,
 ):
     """Build a WebHandler with server thread disabled for testing."""
     from src.web_handler import WebHandler
@@ -24,10 +24,18 @@ def _make_handler(
         gearbox_output=gearbox_output,
         pir_handler=pir_handler,
         audio_handler=audio_handler,
-        speech_dir=speech_dir,
+        speech_directory=speech_directory,
         _start=False,
     )
     return handler, mode_manager
+
+
+def _make_speech_root():
+    """Create a temp mp3 root with speech/, teams/, growl/ subdirs."""
+    root = tempfile.mkdtemp()
+    for name in ("speech", "teams", "growl"):
+        Path(root, name).mkdir()
+    return root
 
 
 class TestWebHandlerIndex(unittest.TestCase):
@@ -306,36 +314,38 @@ class TestWebHandlerTeams(unittest.TestCase):
 
 class TestWebHandlerSpeech(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.mkdtemp()
+        from src.speech_directory import SpeechDirectory
+
+        self.root = _make_speech_root()
+        self.holder = SpeechDirectory(self.root)
+        self.speech_path = Path(self.root, "speech").resolve()
         self.mock_audio = MagicMock()
         self.mock_audio.list_tracks.return_value = ["muhehe.mp3", "okamzik.mp3"]
         self.handler, _ = _make_handler(
             audio_handler=self.mock_audio,
-            speech_dir=self.tmp,
+            speech_directory=self.holder,
         )
         self.client = self.handler._app.test_client()
 
     def tearDown(self):
         import shutil
-        shutil.rmtree(self.tmp)
+        shutil.rmtree(self.root)
 
     def test_get_speech_tracks_returns_list(self):
         resp = self.client.get("/api/speech/tracks")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.get_json(), {"tracks": ["muhehe.mp3", "okamzik.mp3"]})
-        # list_tracks must be called with the resolved speech dir
-        self.mock_audio.list_tracks.assert_called_once_with(
-            Path(self.tmp).resolve()
-        )
+        # list_tracks must be called with the active speech folder's path
+        self.mock_audio.list_tracks.assert_called_once_with(self.speech_path)
 
     def test_get_speech_tracks_without_handler_returns_empty(self):
-        handler, _ = _make_handler(audio_handler=None, speech_dir=self.tmp)
+        handler, _ = _make_handler(audio_handler=None, speech_directory=self.holder)
         client = handler._app.test_client()
         resp = client.get("/api/speech/tracks")
         self.assertEqual(resp.get_json(), {"tracks": []})
 
     def test_get_speech_tracks_without_speech_dir_returns_empty(self):
-        handler, _ = _make_handler(audio_handler=self.mock_audio, speech_dir=None)
+        handler, _ = _make_handler(audio_handler=self.mock_audio, speech_directory=None)
         client = handler._app.test_client()
         resp = client.get("/api/speech/tracks")
         self.assertEqual(resp.get_json(), {"tracks": []})
@@ -343,9 +353,7 @@ class TestWebHandlerSpeech(unittest.TestCase):
     def test_play_calls_play(self):
         resp = self.client.post("/api/speech/play", json={"filename": "muhehe.mp3"})
         self.assertEqual(resp.status_code, 200)
-        self.mock_audio.play.assert_called_once_with(
-            "muhehe.mp3", Path(self.tmp).resolve()
-        )
+        self.mock_audio.play.assert_called_once_with("muhehe.mp3", self.speech_path)
 
     def test_play_returns_playing_filename(self):
         resp = self.client.post("/api/speech/play", json={"filename": "okamzik.mp3"})
@@ -357,16 +365,63 @@ class TestWebHandlerSpeech(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
 
     def test_play_without_handler_returns_503(self):
-        handler, _ = _make_handler(audio_handler=None, speech_dir=self.tmp)
+        handler, _ = _make_handler(audio_handler=None, speech_directory=self.holder)
         client = handler._app.test_client()
         resp = client.post("/api/speech/play", json={"filename": "muhehe.mp3"})
         self.assertEqual(resp.status_code, 503)
 
     def test_play_without_speech_dir_returns_503(self):
-        handler, _ = _make_handler(audio_handler=self.mock_audio, speech_dir=None)
+        handler, _ = _make_handler(audio_handler=self.mock_audio, speech_directory=None)
         client = handler._app.test_client()
         resp = client.post("/api/speech/play", json={"filename": "muhehe.mp3"})
         self.assertEqual(resp.status_code, 503)
+
+    # ---- folder selection ----
+
+    def test_get_dirs_lists_folders_and_current(self):
+        resp = self.client.get("/api/speech/dirs")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.get_json(), {"dirs": ["growl", "speech"], "current": "speech"}
+        )
+
+    def test_get_dirs_without_holder_returns_empty(self):
+        handler, _ = _make_handler(audio_handler=self.mock_audio, speech_directory=None)
+        client = handler._app.test_client()
+        resp = client.get("/api/speech/dirs")
+        self.assertEqual(resp.get_json(), {"dirs": [], "current": None})
+
+    def test_set_dir_changes_current_and_tracks_source(self):
+        resp = self.client.post("/api/speech/dir", json={"directory": "growl"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json(), {"directory": "growl"})
+        # The new selection is reflected back...
+        self.assertEqual(self.client.get("/api/speech/dirs").get_json()["current"], "growl")
+        # ...and tracks now list from the new folder.
+        self.client.get("/api/speech/tracks")
+        self.mock_audio.list_tracks.assert_called_with(Path(self.root, "growl").resolve())
+
+    def test_set_dir_invalid_returns_400(self):
+        resp = self.client.post("/api/speech/dir", json={"directory": "nope"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_set_dir_excluded_returns_400(self):
+        resp = self.client.post("/api/speech/dir", json={"directory": "teams"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_set_dir_traversal_returns_400(self):
+        resp = self.client.post("/api/speech/dir", json={"directory": "../x"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_set_dir_without_holder_returns_503(self):
+        handler, _ = _make_handler(audio_handler=self.mock_audio, speech_directory=None)
+        client = handler._app.test_client()
+        resp = client.post("/api/speech/dir", json={"directory": "growl"})
+        self.assertEqual(resp.status_code, 503)
+
+    def test_set_dir_get_not_allowed(self):
+        resp = self.client.get("/api/speech/dir")
+        self.assertEqual(resp.status_code, 405)
 
     def test_stop_calls_handler(self):
         resp = self.client.post("/api/speech/stop")
@@ -374,7 +429,7 @@ class TestWebHandlerSpeech(unittest.TestCase):
         self.mock_audio.stop.assert_called_once()
 
     def test_stop_without_handler_is_noop(self):
-        handler, _ = _make_handler(audio_handler=None, speech_dir=self.tmp)
+        handler, _ = _make_handler(audio_handler=None, speech_directory=self.holder)
         client = handler._app.test_client()
         resp = client.post("/api/speech/stop")
         self.assertEqual(resp.status_code, 200)

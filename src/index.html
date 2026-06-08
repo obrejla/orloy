@@ -131,7 +131,7 @@
       color: #888;
       text-transform: uppercase;
     }
-    #audio-select, #speech-select {
+    #audio-select, #speech-select, #speech-dir-select {
       width: 100%;
       padding: 0.9rem 1rem;
       border-radius: 10px;
@@ -142,7 +142,7 @@
       cursor: pointer;
     }
     #audio-select  { border: 2px solid #3a86ff; }
-    #speech-select { border: 2px solid #06d6a0; }
+    #speech-select, #speech-dir-select { border: 2px solid #06d6a0; }
     #audio-controls, #speech-controls {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -177,7 +177,7 @@
       color: #06d6a0;
     }
 
-    .btn:disabled, #audio-select:disabled, #speech-select:disabled {
+    .btn:disabled, #audio-select:disabled, #speech-select:disabled, #speech-dir-select:disabled {
       opacity: 0.35;
       cursor: not-allowed;
     }
@@ -220,6 +220,9 @@
     </div>
     <div id="speech-section">
       <label>Speech</label>
+      <select id="speech-dir-select">
+        <option value="">-- select folder --</option>
+      </select>
       <select id="speech-select">
         <option value="">-- select track --</option>
       </select>
@@ -255,6 +258,7 @@
       const speechPlay = document.getElementById('btn-speech-play');
       const speechStop = document.getElementById('btn-speech-stop');
       const speechSel  = document.getElementById('speech-select');
+      const speechDir  = document.getElementById('speech-dir-select');
 
       audioPlay.disabled  = playing;
       audioSel.disabled   = playing;
@@ -264,6 +268,7 @@
 
       speechPlay.disabled = playing;
       speechSel.disabled  = playing;
+      speechDir.disabled  = playing;
       speechStop.disabled = !playing;
       speechPlay.classList.toggle('active', playing);
       speechStop.classList.toggle('active', playing);
@@ -442,8 +447,45 @@
     });
 
     // ------------------------------------------------------------------ //
-    // SPEECH – load tracks on page load, PLAY / STOP
+    // SPEECH – select folder, load tracks on page load, PLAY / STOP
     // ------------------------------------------------------------------ //
+    function prettify(name) {
+      return name.replace(/\.mp3$/i, '')
+                 .replace(/[-_]/g, ' ')
+                 .replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    async function loadSpeechDirs() {
+      try {
+        const res = await fetch('/api/speech/dirs');
+        if (!res.ok) return;
+        const data = await res.json();
+        const sel = document.getElementById('speech-dir-select');
+        sel.innerHTML = '<option value="">-- select folder --</option>';
+        (data.dirs || []).forEach(name => {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = prettify(name);
+          sel.appendChild(opt);
+        });
+        if (data.current) sel.value = data.current;
+      } catch (_) {}
+    }
+
+    document.getElementById('speech-dir-select').addEventListener('change', async (e) => {
+      const directory = e.target.value;
+      if (!directory) return;
+      try {
+        const res = await fetch('/api/speech/dir', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ directory })
+        });
+        if (!res.ok) { showError(); return; }
+        await loadSpeechTracks();
+      } catch (_) { showError(); }
+    });
+
     async function loadSpeechTracks() {
       try {
         const res = await fetch('/api/speech/tracks');
@@ -454,9 +496,7 @@
         (data.tracks || []).forEach(filename => {
           const opt = document.createElement('option');
           opt.value = filename;
-          opt.textContent = filename.replace(/\.mp3$/i, '')
-                                    .replace(/[-_]/g, ' ')
-                                    .replace(/\b\w/g, c => c.toUpperCase());
+          opt.textContent = prettify(filename);
           sel.appendChild(opt);
         });
       } catch (_) {}
@@ -484,6 +524,7 @@
     });
 
     loadTracks();
+    loadSpeechDirs();
     loadSpeechTracks();
   </script>
 </body>
