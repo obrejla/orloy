@@ -281,12 +281,14 @@
     }
 
     function updateUI(data) {
-      const mode = data.mode;
-      const bar = document.getElementById('status-bar');
-      bar.textContent = mode;
-      bar.className = mode;
-      document.getElementById('btn-random').classList.toggle('active', mode === 'RANDOM');
-      document.getElementById('btn-manual').classList.toggle('active', mode === 'MANUAL');
+      if (data.mode !== undefined) {
+        const mode = data.mode;
+        const bar = document.getElementById('status-bar');
+        bar.textContent = mode;
+        bar.className = mode;
+        document.getElementById('btn-random').classList.toggle('active', mode === 'RANDOM');
+        document.getElementById('btn-manual').classList.toggle('active', mode === 'MANUAL');
+      }
       if (data.lights_on !== undefined) {
         document.getElementById('btn-lights').classList.toggle('active', data.lights_on);
       }
