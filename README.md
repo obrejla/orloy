@@ -12,9 +12,9 @@ Python application that controls a DC motor via GPIO buttons and a **browser-bas
 | Motor driver IN2 (BWD) | GPIO 25  |
 | Button – Random        | GPIO 17  |
 | Button – Manual        | GPIO 27  |
-| Button – Gearbox       | GPIO 22  |
+| Button – Lights        | GPIO 22  |
 | Button – Shutdown      | GPIO 23  |
-| Gearbox signal output  | GPIO 5   |
+| Lights signal output   | GPIO 5   |
 | PIR motion sensor      | GPIO 12  |
 | Button – PIR toggle    | GPIO 16  |
 | LED – PIR motion indicator | GPIO 20  |
@@ -32,7 +32,7 @@ Use a suitable motor driver (e.g. L298N) between the Raspberry Pi and the motor.
 |-------------|---------------------------------------------------------------|
 | Random      | Toggles "random" mode (see below)                             |
 | Manual      | Toggles "manual" mode (see below)                             |
-| Gearbox     | Drives GPIO 5 HIGH while held, LOW on release                 |
+| Lights      | Toggles the lights output (GPIO 5) on/off — one press on, next press off |
 | Shutdown    | **Hold ≥ 3 s** → `sudo shutdown -h now`                       |
 | PIR toggle  | Toggles PIR motion detection ON / OFF (starts OFF)             |
 
@@ -67,7 +67,7 @@ The page displays the current mode (IDLE / RANDOM / MANUAL) and seven control se
 |------------------|---------------------------------------------------------|
 | **RANDOM**       | Tap to toggle random mode                               |
 | **MANUAL**       | Tap to toggle manual mode                               |
-| **GEARBOX**      | Held HIGH while pressed, LOW on release                 |
+| **LIGHTS**       | Tap to toggle the lights output on/off                  |
 | **MOTION**       | Tap to toggle PIR motion detection ON / OFF             |
 | **TEAM SOUND**   | Select a track from the dropdown and tap PLAY; tap STOP to stop |
 | **SPEECH**       | Pick a folder, select a track, and tap PLAY; tap STOP to stop |
@@ -83,11 +83,10 @@ The page polls `/api/status` every 2 seconds so the mode indicator stays in sync
 
 | Method | Path                  | Action                                                              |
 |--------|-----------------------|---------------------------------------------------------------------|
-| GET    | `/api/status`         | Returns `{"mode": "…", "pir_enabled": true\|false}`                |
+| GET    | `/api/status`         | Returns `{"mode": "…", "pir_enabled": true\|false, "lights_on": true\|false}` |
 | POST   | `/api/toggle_random`  | Toggle random mode; returns updated mode                            |
 | POST   | `/api/toggle_manual`  | Toggle manual mode; returns updated mode                            |
-| POST   | `/api/gearbox/on`     | Drive gearbox output HIGH                                           |
-| POST   | `/api/gearbox/off`    | Drive gearbox output LOW                                            |
+| POST   | `/api/lights/toggle`  | Toggle the lights output; returns `{"lights_on": true\|false}`      |
 | POST   | `/api/pir/toggle`     | Toggle PIR detection ON/OFF; returns `{"pir_enabled": true\|false}` |
 | POST   | `/api/shutdown`       | Trigger `sudo shutdown -h now`                                      |
 | GET    | `/api/teams/tracks`   | Returns `{"tracks": ["cerveni.mp3", …]}`                            |
@@ -396,7 +395,7 @@ python dev_run.py                    # silent audio (no audio device needed)
 ORLOY_DEV_AUDIO=1 python dev_run.py  # real audio output (CoreAudio on macOS)
 ```
 
-Then open <http://localhost:8080/>.  The motor, gearbox, PIR sensor and LED are
+Then open <http://localhost:8080/>.  The motor, lights, PIR sensor and LED are
 backed by mock pins, but the web UI, the speech-folder selector and audio
 playback work for end-to-end manual testing.
 

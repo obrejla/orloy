@@ -8,11 +8,11 @@ MOTOR_BACKWARD_PIN = 25
 # Input buttons (active-low with internal pull-up)
 BUTTON_RANDOM_PIN = 17
 BUTTON_MANUAL_PIN = 27
-BUTTON_GEARBOX_PIN = 22
+BUTTON_LIGHTS_PIN = 22
 BUTTON_SHUTDOWN_PIN = 23
 
-# Output signal driven HIGH while gearbox button is held
-GEARBOX_OUTPUT_PIN = 5
+# Output signal toggled on/off each time the lights button is pressed
+LIGHTS_OUTPUT_PIN = 5
 
 # PIR motion sensor
 PIR_SENSOR_PIN = 12

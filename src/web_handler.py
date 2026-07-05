@@ -7,11 +7,10 @@ Open the control panel at:
     http://<Pi's WiFi IP>:<WEB_PORT>/
 
 REST API:
-    GET  /api/status           – current mode, pir_enabled, audio_playing as JSON
+    GET  /api/status           – current mode, pir_enabled, lights_on, audio_playing as JSON
     POST /api/toggle_random    – toggle random mode
     POST /api/toggle_manual    – toggle manual mode
-    POST /api/gearbox/on       – drive gearbox output HIGH
-    POST /api/gearbox/off      – drive gearbox output LOW
+    POST /api/lights/toggle    – toggle the lights output on/off
     POST /api/pir/toggle       – toggle PIR motion detection on/off
     POST /api/shutdown         – trigger OS shutdown
     GET  /api/teams/tracks     – list team MP3 filenames
@@ -56,13 +55,13 @@ class WebHandler:
     Serves the Orloy control panel over HTTP.
 
     Starts a Werkzeug server in a background daemon thread.  All control
-    actions (random, manual, gearbox, shutdown, audio, speech) are exposed
+    actions (random, manual, lights, shutdown, audio, speech) are exposed
     as REST endpoints so the browser-based UI can trigger them.
 
     Args:
         mode_manager:    ModeManager instance.
-        gearbox_output:  gpiozero OutputDevice (or compatible) for the
-                         gearbox pin.  Pass None to skip.
+        lights_output:   gpiozero OutputDevice (or compatible) for the
+                         lights pin.  Pass None to skip.
         pir_handler:     PIRHandler instance, or None.
         audio_handler:   AudioHandler instance shared by both the Teams and
                          Speech players, or None to disable audio entirely.
@@ -78,7 +77,7 @@ class WebHandler:
     def __init__(
         self,
         mode_manager,
-        gearbox_output=None,
+        lights_output=None,
         pir_handler=None,
         audio_handler=None,
         speech_directory=None,
@@ -87,7 +86,7 @@ class WebHandler:
         _start: bool = True,
     ) -> None:
         self._mode_manager = mode_manager
-        self._gearbox_output = gearbox_output
+        self._lights_output = lights_output
         self._pir_handler = pir_handler
         self._audio_handler = audio_handler
         self._speech_directory = speech_directory
@@ -129,6 +128,8 @@ class WebHandler:
             payload = {"mode": self._mode_manager.mode.name}
             if self._pir_handler is not None:
                 payload["pir_enabled"] = self._pir_handler.enabled
+            if self._lights_output is not None:
+                payload["lights_on"] = bool(self._lights_output.value)
             if self._audio_handler is not None:
                 payload["audio_playing"] = self._audio_handler.is_playing
                 payload["currently_playing"] = self._audio_handler.current_track
@@ -146,19 +147,14 @@ class WebHandler:
             self._mode_manager.toggle_manual()
             return jsonify({"mode": self._mode_manager.mode.name})
 
-        @app.route("/api/gearbox/on", methods=["POST"])
-        def gearbox_on():
-            logger.info("Web: gearbox on")
-            if self._gearbox_output is not None:
-                self._gearbox_output.on()
-            return jsonify({"gearbox": "on"})
-
-        @app.route("/api/gearbox/off", methods=["POST"])
-        def gearbox_off():
-            logger.info("Web: gearbox off")
-            if self._gearbox_output is not None:
-                self._gearbox_output.off()
-            return jsonify({"gearbox": "off"})
+        @app.route("/api/lights/toggle", methods=["POST"])
+        def lights_toggle():
+            logger.info("Web: lights toggle")
+            state = None
+            if self._lights_output is not None:
+                self._lights_output.toggle()
+                state = bool(self._lights_output.value)
+            return jsonify({"lights_on": state})
 
         @app.route("/api/pir/toggle", methods=["POST"])
         def pir_toggle():

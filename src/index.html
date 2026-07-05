@@ -82,12 +82,12 @@
       box-shadow: 0 0 18px rgba(247,37,133,0.5);
     }
 
-    /* GEARBOX – full width */
-    #btn-gearbox {
+    /* LIGHTS – full width */
+    #btn-lights {
       grid-column: 1 / -1;
       border-color: #7209b7;
     }
-    #btn-gearbox.pressing {
+    #btn-lights.active {
       background: #7209b7; color: #fff;
       box-shadow: 0 0 18px rgba(114,9,183,0.5);
     }
@@ -206,7 +206,7 @@
   <div class="grid">
     <button class="btn" id="btn-random">RANDOM</button>
     <button class="btn" id="btn-manual">MANUAL</button>
-    <button class="btn" id="btn-gearbox">GEARBOX</button>
+    <button class="btn" id="btn-lights">LIGHTS</button>
     <button class="btn" id="btn-pir">MOTION: OFF</button>
     <div id="audio-section">
       <label>Team Sound</label>
@@ -287,6 +287,9 @@
       bar.className = mode;
       document.getElementById('btn-random').classList.toggle('active', mode === 'RANDOM');
       document.getElementById('btn-manual').classList.toggle('active', mode === 'MANUAL');
+      if (data.lights_on !== undefined) {
+        document.getElementById('btn-lights').classList.toggle('active', data.lights_on);
+      }
       if (data.pir_enabled !== undefined) {
         const pirBtn = document.getElementById('btn-pir');
         pirBtn.classList.toggle('active', data.pir_enabled);
@@ -350,25 +353,9 @@
     });
 
     // ------------------------------------------------------------------ //
-    // GEARBOX – HIGH while held, LOW on release
+    // LIGHTS – toggle on click
     // ------------------------------------------------------------------ //
-    const gearboxBtn = document.getElementById('btn-gearbox');
-
-    function gearboxPress() {
-      gearboxBtn.classList.add('pressing');
-      fetch('/api/gearbox/on', { method: 'POST' }).catch(() => {});
-    }
-    function gearboxRelease() {
-      gearboxBtn.classList.remove('pressing');
-      fetch('/api/gearbox/off', { method: 'POST' }).catch(() => {});
-    }
-
-    gearboxBtn.addEventListener('mousedown',  gearboxPress);
-    gearboxBtn.addEventListener('mouseup',    gearboxRelease);
-    gearboxBtn.addEventListener('mouseleave', gearboxRelease);
-    gearboxBtn.addEventListener('touchstart', e => { e.preventDefault(); gearboxPress(); });
-    gearboxBtn.addEventListener('touchend',   e => { e.preventDefault(); gearboxRelease(); });
-    gearboxBtn.addEventListener('touchcancel',e => { e.preventDefault(); gearboxRelease(); });
+    document.getElementById('btn-lights').addEventListener('click', () => apiPost('/lights/toggle'));
 
     // ------------------------------------------------------------------ //
     // SHUTDOWN – hold for SHUTDOWN_HOLD_MS to trigger

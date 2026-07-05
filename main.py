@@ -20,10 +20,10 @@ from src.config import (
     MOTOR_BACKWARD_PIN,
     BUTTON_RANDOM_PIN,
     BUTTON_MANUAL_PIN,
-    BUTTON_GEARBOX_PIN,
+    BUTTON_LIGHTS_PIN,
     BUTTON_SHUTDOWN_PIN,
     BUTTON_PIR_TOGGLE_PIN,
-    GEARBOX_OUTPUT_PIN,
+    LIGHTS_OUTPUT_PIN,
     PIR_SENSOR_PIN,
     SHUTDOWN_HOLD_TIME,
     WEB_HOST,
@@ -63,9 +63,9 @@ def main() -> None:
         mode_manager,
         random_pin=BUTTON_RANDOM_PIN,
         manual_pin=BUTTON_MANUAL_PIN,
-        gearbox_btn_pin=BUTTON_GEARBOX_PIN,
+        lights_btn_pin=BUTTON_LIGHTS_PIN,
         shutdown_pin=BUTTON_SHUTDOWN_PIN,
-        gearbox_out_pin=GEARBOX_OUTPUT_PIN,
+        lights_out_pin=LIGHTS_OUTPUT_PIN,
         shutdown_hold_time=SHUTDOWN_HOLD_TIME,
     )
     audio_handler = AudioHandler(AUDIO_TEAMS_DIR)
@@ -78,7 +78,7 @@ def main() -> None:
     )
     web_handler = WebHandler(
         mode_manager,
-        gearbox_output=gpio_handler.gearbox_output,
+        lights_output=gpio_handler.lights_output,
         pir_handler=pir_handler,
         audio_handler=audio_handler,
         speech_directory=speech_directory,

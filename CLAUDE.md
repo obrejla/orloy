@@ -31,7 +31,7 @@ The app is a motor controller for Raspberry Pi 5. It has two input surfaces (phy
 GPIO buttons  ──┐
                 ├──▶  ModeManager  ──▶  MotorController  ──▶  gpiozero.Motor
 Web (HTTP)    ──┘         │
-                           └──▶  gearbox_output (OutputDevice, GPIO 5)
+                           └──▶  lights_output (OutputDevice, GPIO 5)
 
 Web (HTTP)    ──▶  AudioHandler  ──▶  pygame.mixer
               (teams + speech routes share one AudioHandler instance;
@@ -43,7 +43,7 @@ PIRHandler    ──┘     (web selects the folder; motion reads it on each eve
 ```
 
 - **`ModeManager`** (`src/mode_manager.py`) is the single source of truth for state (IDLE / RANDOM / MANUAL). It is thread-safe (`threading.Lock`). The random loop runs in a daemon thread and uses `threading.Event.wait()` so it wakes immediately when stopped.
-- **`GPIOHandler`** (`src/gpio_handler.py`) wires `gpiozero.Button` callbacks → `ModeManager`. It owns the shared `gearbox_output` (`OutputDevice`) as a public attribute so `WebHandler` can reuse it.
+- **`GPIOHandler`** (`src/gpio_handler.py`) wires `gpiozero.Button` callbacks → `ModeManager`. It owns the shared `lights_output` (`OutputDevice`, GPIO 5) as a public attribute so `WebHandler` can reuse it; the lights button is a latching toggle (each press flips the pin on/off).
 - **`WebHandler`** (`src/web_handler.py`) serves `src/index.html` and a REST API over HTTP (default port 8080). Runs a Werkzeug server in a daemon thread. Shutdown hold is implemented client-side in JavaScript.
 - **`PIRHandler`** (`src/pir_handler.py`) manages a `gpiozero.MotionSensor` on GPIO 12, a toggle button on GPIO 16, and a `gpiozero.LED` indicator on GPIO 20. Detection is OFF at startup; logs motion events when enabled and turns the LED on during motion (off when motion stops). When enabled, motion auto-plays a random track from the **currently selected speech folder** (read from the shared `SpeechDirectory` on each event, so it follows web-driven folder changes). Exposes `toggle()` and `enabled` for the web API.
 - **`AudioHandler`** (`src/audio_handler.py`) plays MP3 files via `pygame.mixer`. Thread-safe. No GPIO pins. A single shared instance handles both the Teams (`mp3/teams/`) and Speech players. Playback requests are serialised through an internal condition-variable queue: a new `play()` call while a track is already playing waits in queue until it finishes. Directory-agnostic: `list_tracks(directory?)` and `play(filename, directory?)` accept a per-call directory. Exposes `list_tracks(directory?)`, `play(filename, directory?)`, `stop()`, and `close()`.
@@ -63,9 +63,9 @@ All `gpiozero` classes are patched before import using `unittest.mock.patch`. Te
 | Motor backward      | 25   |
 | Button: Random      | 17   |
 | Button: Manual      | 27   |
-| Button: Gearbox     | 22   |
+| Button: Lights      | 22   |
 | Button: Shutdown    | 23   |
-| Gearbox signal out  | 5    |
+| Lights signal out   | 5    |
 | PIR sensor          | 12   |
 | Button: PIR toggle  | 16   |
 | LED: PIR indicator  | 20   |

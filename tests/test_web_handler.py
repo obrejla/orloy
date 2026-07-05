@@ -9,7 +9,7 @@ from src.mode_manager import AppMode
 
 def _make_handler(
     mode=AppMode.IDLE,
-    gearbox_output=None,
+    lights_output=None,
     pir_handler=None,
     audio_handler=None,
     speech_directory=None,
@@ -21,7 +21,7 @@ def _make_handler(
     mode_manager.mode = mode
     handler = WebHandler(
         mode_manager,
-        gearbox_output=gearbox_output,
+        lights_output=lights_output,
         pir_handler=pir_handler,
         audio_handler=audio_handler,
         speech_directory=speech_directory,
@@ -109,47 +109,42 @@ class TestWebHandlerToggleManual(unittest.TestCase):
         self.assertEqual(resp.status_code, 405)
 
 
-class TestWebHandlerGearbox(unittest.TestCase):
-    def test_gearbox_on_activates_output(self):
-        gearbox = MagicMock()
-        handler, _ = _make_handler(gearbox_output=gearbox)
+class TestWebHandlerLights(unittest.TestCase):
+    def test_lights_toggle_toggles_output_and_reports_state(self):
+        lights = MagicMock()
+        lights.value = 1          # pin is on after the toggle
+        handler, _ = _make_handler(lights_output=lights)
         client = handler._app.test_client()
-        resp = client.post("/api/gearbox/on")
+        resp = client.post("/api/lights/toggle")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.get_json(), {"gearbox": "on"})
-        gearbox.on.assert_called_once()
+        self.assertEqual(resp.get_json(), {"lights_on": True})
+        lights.toggle.assert_called_once()
 
-    def test_gearbox_off_deactivates_output(self):
-        gearbox = MagicMock()
-        handler, _ = _make_handler(gearbox_output=gearbox)
+    def test_lights_toggle_reports_off_state(self):
+        lights = MagicMock()
+        lights.value = 0          # pin is off after the toggle
+        handler, _ = _make_handler(lights_output=lights)
         client = handler._app.test_client()
-        resp = client.post("/api/gearbox/off")
+        resp = client.post("/api/lights/toggle")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.get_json(), {"gearbox": "off"})
-        gearbox.off.assert_called_once()
+        self.assertEqual(resp.get_json(), {"lights_on": False})
+        lights.toggle.assert_called_once()
 
-    def test_gearbox_on_without_output_is_noop(self):
-        handler, _ = _make_handler(gearbox_output=None)
+    def test_lights_toggle_without_output_is_noop(self):
+        handler, _ = _make_handler(lights_output=None)
         client = handler._app.test_client()
-        resp = client.post("/api/gearbox/on")
+        resp = client.post("/api/lights/toggle")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.get_json(), {"gearbox": "on"})
+        self.assertEqual(resp.get_json(), {"lights_on": None})
 
-    def test_gearbox_off_without_output_is_noop(self):
-        handler, _ = _make_handler(gearbox_output=None)
+    def test_status_reports_lights_state(self):
+        lights = MagicMock()
+        lights.value = 1
+        handler, _ = _make_handler(lights_output=lights)
         client = handler._app.test_client()
-        resp = client.post("/api/gearbox/off")
+        resp = client.get("/api/status")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.get_json(), {"gearbox": "off"})
-
-    def test_gearbox_on_then_off(self):
-        gearbox = MagicMock()
-        handler, _ = _make_handler(gearbox_output=gearbox)
-        client = handler._app.test_client()
-        client.post("/api/gearbox/on")
-        client.post("/api/gearbox/off")
-        gearbox.on.assert_called_once()
-        gearbox.off.assert_called_once()
+        self.assertTrue(resp.get_json()["lights_on"])
 
 
 class TestWebHandlerShutdown(unittest.TestCase):
