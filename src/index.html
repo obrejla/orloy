@@ -131,7 +131,7 @@
       color: #888;
       text-transform: uppercase;
     }
-    #audio-select, #speech-select, #speech-dir-select {
+    #audio-select, #speech-select, #speech-dir-select, #pir-delay-select {
       width: 100%;
       padding: 0.9rem 1rem;
       border-radius: 10px;
@@ -143,6 +143,14 @@
     }
     #audio-select  { border: 2px solid #3a86ff; }
     #speech-select, #speech-dir-select { border: 2px solid #06d6a0; }
+    #pir-delay { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 0.5rem; }
+    #pir-delay label {
+      font-size: 0.8rem;
+      letter-spacing: 0.14em;
+      color: #888;
+      text-transform: uppercase;
+    }
+    #pir-delay-select { border: 2px solid #f4a261; }
     #audio-controls, #speech-controls {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -208,6 +216,18 @@
     <button class="btn" id="btn-manual">MANUAL</button>
     <button class="btn" id="btn-lights">LIGHTS</button>
     <button class="btn" id="btn-pir">MOTION: OFF</button>
+    <div id="pir-delay">
+      <label>Motion Delay</label>
+      <select id="pir-delay-select">
+        <option value="0">Off (every motion)</option>
+        <option value="60">1 min</option>
+        <option value="300">5 min</option>
+        <option value="600">10 min</option>
+        <option value="900">15 min</option>
+        <option value="1800">30 min</option>
+        <option value="3600">60 min</option>
+      </select>
+    </div>
     <div id="audio-section">
       <label>Team Sound</label>
       <select id="audio-select">
@@ -297,6 +317,13 @@
         pirBtn.classList.toggle('active', data.pir_enabled);
         pirBtn.textContent = 'MOTION: ' + (data.pir_enabled ? 'ON' : 'OFF');
       }
+      if (data.pir_cooldown_sec !== undefined) {
+        const sel = document.getElementById('pir-delay-select');
+        // Don't clobber the dropdown while the user is choosing.
+        if (document.activeElement !== sel) {
+          sel.value = String(Math.round(data.pir_cooldown_sec));
+        }
+      }
       if (data.audio_playing !== undefined) {
         updateAudioUI(data.audio_playing);
       }
@@ -351,6 +378,21 @@
         const pirBtn = document.getElementById('btn-pir');
         pirBtn.classList.toggle('active', data.pir_enabled);
         pirBtn.textContent = 'MOTION: ' + (data.pir_enabled ? 'ON' : 'OFF');
+      } catch (_) { showError(); }
+    });
+
+    // ------------------------------------------------------------------ //
+    // MOTION DELAY – set auto-play cooldown on change
+    // ------------------------------------------------------------------ //
+    document.getElementById('pir-delay-select').addEventListener('change', async (e) => {
+      const seconds = Number(e.target.value);
+      try {
+        const res = await fetch('/api/pir/cooldown', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seconds })
+        });
+        if (!res.ok) { showError(); return; }
       } catch (_) { showError(); }
     });
 

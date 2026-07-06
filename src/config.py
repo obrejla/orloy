@@ -19,6 +19,10 @@ PIR_SENSOR_PIN = 12
 BUTTON_PIR_TOGGLE_PIN = 16
 PIR_LED_PIN = 20
 
+# PIR motion auto-play cooldown: minimum seconds between motion-triggered plays.
+# 0 disables the cooldown (every motion may trigger).  Adjustable at runtime via web UI.
+PIR_TRIGGER_COOLDOWN_SEC = 1800.0  # 30 minutes
+
 # How long the shutdown button must be held (seconds)
 SHUTDOWN_HOLD_TIME = 3.0
 

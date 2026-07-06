@@ -5,8 +5,17 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
-def _make_pir_handler(initial_enabled=True, audio_handler=None, speech_directory=None):
-    """Helper: build a PIRHandler with all gpiozero devices mocked."""
+def _make_pir_handler(
+    initial_enabled=True,
+    audio_handler=None,
+    speech_directory=None,
+    initial_cooldown_sec=0,
+):
+    """Helper: build a PIRHandler with all gpiozero devices mocked.
+
+    Cooldown defaults to 0 (disabled) so existing behavioural tests are
+    unaffected; cooldown tests pass an explicit value.
+    """
     mock_sensor = MagicMock()
     mock_btn = MagicMock()
     mock_led = MagicMock()
@@ -21,6 +30,7 @@ def _make_pir_handler(initial_enabled=True, audio_handler=None, speech_directory
             initial_enabled=initial_enabled,
             audio_handler=audio_handler,
             speech_directory=speech_directory,
+            initial_cooldown_sec=initial_cooldown_sec,
         )
 
     return handler, mock_sensor, mock_btn, mock_led
@@ -141,7 +151,9 @@ class TestPIRHandlerClose(unittest.TestCase):
 
 
 class TestPIRHandlerAudio(unittest.TestCase):
-    def _make_with_audio(self, is_playing=False, tracks=None, enabled=True):
+    def _make_with_audio(
+        self, is_playing=False, tracks=None, enabled=True, cooldown=0
+    ):
         from src.speech_directory import SpeechDirectory
 
         mock_audio = MagicMock()
@@ -155,6 +167,7 @@ class TestPIRHandlerAudio(unittest.TestCase):
             initial_enabled=enabled,
             audio_handler=mock_audio,
             speech_directory=holder,
+            initial_cooldown_sec=cooldown,
         )
         return handler, mock_audio, holder, tmp
 
@@ -196,4 +209,69 @@ class TestPIRHandlerAudio(unittest.TestCase):
         handler, mock_audio, _, tmp = self._make_with_audio(tracks=[])
         handler._on_motion()
         mock_audio.play.assert_not_called()
+        shutil.rmtree(tmp)
+
+
+class TestPIRHandlerCooldown(TestPIRHandlerAudio):
+    def test_default_cooldown_from_config(self):
+        from src.config import PIR_TRIGGER_COOLDOWN_SEC
+
+        handler, _, _, _ = _make_pir_handler(
+            initial_cooldown_sec=PIR_TRIGGER_COOLDOWN_SEC
+        )
+        self.assertEqual(handler.cooldown_sec, PIR_TRIGGER_COOLDOWN_SEC)
+
+    def test_set_cooldown_updates_value(self):
+        handler, _, _, _ = _make_pir_handler(initial_cooldown_sec=0)
+        self.assertEqual(handler.set_cooldown(120), 120.0)
+        self.assertEqual(handler.cooldown_sec, 120.0)
+
+    def test_set_cooldown_rejects_negative(self):
+        handler, _, _, _ = _make_pir_handler()
+        with self.assertRaises(ValueError):
+            handler.set_cooldown(-1)
+
+    def test_zero_cooldown_plays_every_motion(self):
+        handler, mock_audio, _, tmp = self._make_with_audio(cooldown=0)
+        handler._on_motion()
+        handler._on_motion()
+        self.assertEqual(mock_audio.play.call_count, 2)
+        shutil.rmtree(tmp)
+
+    def test_second_motion_within_cooldown_suppressed(self):
+        handler, mock_audio, _, tmp = self._make_with_audio(cooldown=1800)
+        with patch("src.pir_handler.time.monotonic", side_effect=[0.0, 60.0]):
+            handler._on_motion()   # t=0 → plays
+            handler._on_motion()   # t=60s → within 30-min window, suppressed
+        mock_audio.play.assert_called_once()
+        shutil.rmtree(tmp)
+
+    def test_suppressed_motion_still_lights_led_and_logs(self):
+        handler, mock_audio, _, tmp = self._make_with_audio(cooldown=1800)
+        with patch("src.pir_handler.time.monotonic", side_effect=[0.0, 60.0]):
+            handler._on_motion()
+            handler._led.on.reset_mock()
+            with self.assertLogs("src.pir_handler", level="INFO") as cm:
+                handler._on_motion()
+        handler._led.on.assert_called_once()  # LED still responds while suppressed
+        self.assertTrue(any("motion detected" in line for line in cm.output))
+        self.assertTrue(any("cooldown" in line for line in cm.output))
+        shutil.rmtree(tmp)
+
+    def test_motion_plays_again_after_cooldown_elapses(self):
+        handler, mock_audio, _, tmp = self._make_with_audio(cooldown=1800)
+        with patch("src.pir_handler.time.monotonic", side_effect=[0.0, 1801.0]):
+            handler._on_motion()   # t=0 → plays
+            handler._on_motion()   # t=1801s → past window, plays again
+        self.assertEqual(mock_audio.play.call_count, 2)
+        shutil.rmtree(tmp)
+
+    def test_re_enable_resets_cooldown(self):
+        handler, mock_audio, _, tmp = self._make_with_audio(cooldown=1800)
+        with patch("src.pir_handler.time.monotonic", side_effect=[0.0, 60.0]):
+            handler._on_motion()   # t=0 → plays, records trigger
+            handler.toggle()       # disable
+            handler.toggle()       # re-enable → clears last trigger
+            handler._on_motion()   # t=60s but timer reset → plays
+        self.assertEqual(mock_audio.play.call_count, 2)
         shutil.rmtree(tmp)

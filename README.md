@@ -61,7 +61,7 @@ When the application starts it binds a small HTTP server on **port 8080** (all i
 | Option A / B (NetworkManager) | `http://10.42.0.1:8080/` |
 | Option C (hostapd/dnsmasq) | `http://192.168.4.1:8080/` |
 
-The page displays the current mode (IDLE / RANDOM / MANUAL) and seven control sections:
+The page displays the current mode (IDLE / RANDOM / MANUAL) and eight control sections:
 
 | Button / Section | Behaviour                                               |
 |------------------|---------------------------------------------------------|
@@ -69,11 +69,14 @@ The page displays the current mode (IDLE / RANDOM / MANUAL) and seven control se
 | **MANUAL**       | Tap to toggle manual mode                               |
 | **LIGHTS**       | Tap to toggle the lights output on/off                  |
 | **MOTION**       | Tap to toggle PIR motion detection ON / OFF             |
+| **MOTION DELAY** | Dropdown setting the minimum time between motion-triggered plays |
 | **TEAM SOUND**   | Select a track from the dropdown and tap PLAY; tap STOP to stop |
 | **SPEECH**       | Pick a folder, select a track, and tap PLAY; tap STOP to stop |
 | **SHUTDOWN**     | Hold for 3 seconds to trigger `sudo shutdown -h now`    |
 
 The SPEECH section has a **folder** dropdown listing the sub-folders of `mp3/` (the `teams/` folder is excluded — it is the separate TEAM SOUND player).  Selecting a folder loads its tracks for manual PLAY **and** changes the folder PIR motion auto-play draws from.  The selection lives on the server (so motion and the web UI agree) and resets to `speech` on restart.
+
+**Motion delay (cooldown):** when detection is ON, motion auto-plays a random track from the active speech folder — but only once per cooldown window.  Once a track is triggered, further motion is ignored (for playback) until the delay elapses; the LED and motion logging still respond to every motion event.  The delay is adjustable live from the MOTION DELAY dropdown (Off / 1 / 5 / 10 / 15 / 30 / 60 min) and defaults to `PIR_TRIGGER_COOLDOWN_SEC` in `src/config.py` (30 minutes).  Setting it to *Off* triggers on every motion.  Toggling detection OFF then ON resets the cooldown, so the next motion triggers immediately.  The cooldown value lives in-memory and resets to the config default on restart.
 
 Both TEAM SOUND and SPEECH share the same audio player.  If one is already playing, a new PLAY request from either section is queued and starts automatically when the current track ends.  All player controls (PLAY, STOP, dropdowns) are disabled while any audio is playing or pending.
 
@@ -83,11 +86,12 @@ The page polls `/api/status` every 2 seconds so the mode indicator stays in sync
 
 | Method | Path                  | Action                                                              |
 |--------|-----------------------|---------------------------------------------------------------------|
-| GET    | `/api/status`         | Returns `{"mode": "…", "pir_enabled": true\|false, "lights_on": true\|false}` |
+| GET    | `/api/status`         | Returns `{"mode": "…", "pir_enabled": true\|false, "pir_cooldown_sec": 1800.0, "lights_on": true\|false}` |
 | POST   | `/api/toggle_random`  | Toggle random mode; returns updated mode                            |
 | POST   | `/api/toggle_manual`  | Toggle manual mode; returns updated mode                            |
 | POST   | `/api/lights/toggle`  | Toggle the lights output; returns `{"lights_on": true\|false}`      |
 | POST   | `/api/pir/toggle`     | Toggle PIR detection ON/OFF; returns `{"pir_enabled": true\|false}` |
+| POST   | `/api/pir/cooldown`   | Set motion auto-play cooldown; body `{"seconds": 1800}`; returns `{"pir_cooldown_sec": …}` |
 | POST   | `/api/shutdown`       | Trigger `sudo shutdown -h now`                                      |
 | GET    | `/api/teams/tracks`   | Returns `{"tracks": ["cerveni.mp3", …]}`                            |
 | POST   | `/api/teams/play`     | Play a team track; body `{"filename": "cerveni.mp3"}`; returns `{"playing": "…"}` |

@@ -13,10 +13,16 @@ Detection starts disabled at launch.
 import logging
 import random
 import threading
+import time
 
 from gpiozero import Button, LED, MotionSensor
 
-from src.config import BUTTON_PIR_TOGGLE_PIN, PIR_LED_PIN, PIR_SENSOR_PIN
+from src.config import (
+    BUTTON_PIR_TOGGLE_PIN,
+    PIR_LED_PIN,
+    PIR_SENSOR_PIN,
+    PIR_TRIGGER_COOLDOWN_SEC,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +38,12 @@ class PIRHandler:
 
     Detection can be toggled at runtime via the physical button or the web API.
 
+    Motion auto-play is rate-limited by a cooldown: once motion triggers a track,
+    any further motion is ignored (for playback) until ``cooldown_sec`` has elapsed.
+    The LED and motion logging still respond to every motion event; only the
+    auto-play is suppressed during the cooldown window.  A cooldown of 0 disables
+    the rate limit.  Toggling detection OFF then ON resets the cooldown.
+
     Args:
         sensor_pin:      GPIO pin connected to the PIR sensor (default GPIO 12).
         toggle_pin:      GPIO pin connected to the toggle button (default GPIO 16).
@@ -42,6 +54,8 @@ class PIRHandler:
                          random track from its currently selected folder.  Read on
                          each motion event, so it follows web-driven folder changes.
                          None disables motion audio.
+        initial_cooldown_sec: Minimum seconds between motion-triggered plays
+                         (default from config).  0 disables the cooldown.
     """
 
     def __init__(
@@ -52,11 +66,14 @@ class PIRHandler:
         initial_enabled: bool = False,
         audio_handler=None,
         speech_directory=None,
+        initial_cooldown_sec: float = PIR_TRIGGER_COOLDOWN_SEC,
     ) -> None:
         self._lock = threading.Lock()
         self._enabled = initial_enabled
         self._audio_handler = audio_handler
         self._speech_directory = speech_directory
+        self._cooldown_sec = float(initial_cooldown_sec)
+        self._last_trigger = None
 
         self._sensor = MotionSensor(sensor_pin)
         self._btn = Button(toggle_pin)
@@ -83,11 +100,42 @@ class PIRHandler:
         with self._lock:
             return self._enabled
 
+    @property
+    def cooldown_sec(self) -> float:
+        """Current motion auto-play cooldown in seconds (0 = disabled)."""
+        with self._lock:
+            return self._cooldown_sec
+
+    def set_cooldown(self, seconds: float) -> float:
+        """
+        Set the motion auto-play cooldown.
+
+        Args:
+            seconds: Minimum seconds between motion-triggered plays.  0 disables
+                the cooldown so every motion may trigger.
+
+        Returns:
+            The new cooldown value in seconds.
+
+        Raises:
+            ValueError: If ``seconds`` is negative or not a number.
+        """
+        value = float(seconds)
+        if value < 0:
+            raise ValueError("cooldown must be >= 0")
+        with self._lock:
+            self._cooldown_sec = value
+        logger.info("PIR cooldown set to %.0fs", value)
+        return value
+
     def toggle(self) -> bool:
         """Toggle motion detection on/off.  Returns the new enabled state."""
         with self._lock:
             self._enabled = not self._enabled
             state = self._enabled
+            if state:
+                # Fresh start on re-enable: allow an immediate trigger.
+                self._last_trigger = None
         if not state:
             self._led.off()
         logger.info("PIR detection %s", "ON" if state else "OFF")
@@ -105,16 +153,31 @@ class PIRHandler:
         self._led.on()
         logger.info("PIR: motion detected")
         if (
-            self._audio_handler is not None
-            and self._speech_directory is not None
-            and not self._audio_handler.is_playing
+            self._audio_handler is None
+            or self._speech_directory is None
+            or self._audio_handler.is_playing
         ):
-            directory = self._speech_directory.current_path()
-            tracks = self._audio_handler.list_tracks(directory)
-            if tracks:
-                filename = random.choice(tracks)
-                logger.info("PIR: auto-playing %s", filename)
-                self._audio_handler.play(filename, directory)
+            return
+
+        now = time.monotonic()
+        with self._lock:
+            cooldown = self._cooldown_sec
+            last = self._last_trigger
+        if cooldown > 0 and last is not None and now - last < cooldown:
+            logger.info(
+                "PIR: motion ignored (cooldown %.0fs remaining)",
+                cooldown - (now - last),
+            )
+            return
+
+        directory = self._speech_directory.current_path()
+        tracks = self._audio_handler.list_tracks(directory)
+        if tracks:
+            filename = random.choice(tracks)
+            logger.info("PIR: auto-playing %s", filename)
+            with self._lock:
+                self._last_trigger = now
+            self._audio_handler.play(filename, directory)
 
     def _on_no_motion(self) -> None:
         self._led.off()

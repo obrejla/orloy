@@ -12,6 +12,7 @@ REST API:
     POST /api/toggle_manual    – toggle manual mode
     POST /api/lights/toggle    – toggle the lights output on/off
     POST /api/pir/toggle       – toggle PIR motion detection on/off
+    POST /api/pir/cooldown     – set motion auto-play cooldown  {"seconds": 1800}
     POST /api/shutdown         – trigger OS shutdown
     GET  /api/teams/tracks     – list team MP3 filenames
     POST /api/teams/play       – play a team track  {"filename": "cerveni.mp3"}
@@ -128,6 +129,7 @@ class WebHandler:
             payload = {"mode": self._mode_manager.mode.name}
             if self._pir_handler is not None:
                 payload["pir_enabled"] = self._pir_handler.enabled
+                payload["pir_cooldown_sec"] = self._pir_handler.cooldown_sec
             if self._lights_output is not None:
                 payload["lights_on"] = bool(self._lights_output.value)
             if self._audio_handler is not None:
@@ -161,6 +163,19 @@ class WebHandler:
             logger.info("Web: PIR toggle")
             new_state = self._pir_handler.toggle() if self._pir_handler is not None else None
             return jsonify({"pir_enabled": new_state})
+
+        @app.route("/api/pir/cooldown", methods=["POST"])
+        def pir_cooldown():
+            if self._pir_handler is None:
+                return jsonify({"error": "no pir handler"}), 503
+            body = request.get_json(silent=True) or {}
+            seconds = body.get("seconds")
+            try:
+                value = self._pir_handler.set_cooldown(float(seconds))
+            except (TypeError, ValueError) as exc:
+                return jsonify({"error": str(exc)}), 400
+            logger.info("Web: PIR cooldown set to %.0fs", value)
+            return jsonify({"pir_cooldown_sec": value})
 
         @app.route("/api/shutdown", methods=["POST"])
         def shutdown():

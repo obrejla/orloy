@@ -169,6 +169,7 @@ class TestWebHandlerPIR(unittest.TestCase):
     def test_status_includes_pir_enabled(self):
         mock_pir = MagicMock()
         mock_pir.enabled = True
+        mock_pir.cooldown_sec = 1800.0
         handler, _ = _make_handler(pir_handler=mock_pir)
         client = handler._app.test_client()
         resp = client.get("/api/status")
@@ -176,6 +177,47 @@ class TestWebHandlerPIR(unittest.TestCase):
         data = resp.get_json()
         self.assertIn("pir_enabled", data)
         self.assertTrue(data["pir_enabled"])
+
+    def test_status_includes_pir_cooldown(self):
+        mock_pir = MagicMock()
+        mock_pir.enabled = False
+        mock_pir.cooldown_sec = 1800.0
+        handler, _ = _make_handler(pir_handler=mock_pir)
+        client = handler._app.test_client()
+        resp = client.get("/api/status")
+        self.assertEqual(resp.get_json()["pir_cooldown_sec"], 1800.0)
+
+    def test_pir_cooldown_sets_value(self):
+        mock_pir = MagicMock()
+        mock_pir.set_cooldown.return_value = 300.0
+        handler, _ = _make_handler(pir_handler=mock_pir)
+        client = handler._app.test_client()
+        resp = client.post("/api/pir/cooldown", json={"seconds": 300})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json(), {"pir_cooldown_sec": 300.0})
+        mock_pir.set_cooldown.assert_called_once_with(300.0)
+
+    def test_pir_cooldown_rejects_invalid(self):
+        mock_pir = MagicMock()
+        mock_pir.set_cooldown.side_effect = ValueError("cooldown must be >= 0")
+        handler, _ = _make_handler(pir_handler=mock_pir)
+        client = handler._app.test_client()
+        resp = client.post("/api/pir/cooldown", json={"seconds": -5})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.get_json())
+
+    def test_pir_cooldown_missing_seconds_is_400(self):
+        mock_pir = MagicMock()
+        handler, _ = _make_handler(pir_handler=mock_pir)
+        client = handler._app.test_client()
+        resp = client.post("/api/pir/cooldown", json={})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_pir_cooldown_without_handler_returns_503(self):
+        handler, _ = _make_handler(pir_handler=None)
+        client = handler._app.test_client()
+        resp = client.post("/api/pir/cooldown", json={"seconds": 60})
+        self.assertEqual(resp.status_code, 503)
 
     def test_status_excludes_pir_enabled_without_handler(self):
         handler, _ = _make_handler(pir_handler=None)

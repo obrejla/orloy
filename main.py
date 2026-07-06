@@ -25,6 +25,7 @@ from src.config import (
     BUTTON_PIR_TOGGLE_PIN,
     LIGHTS_OUTPUT_PIN,
     PIR_SENSOR_PIN,
+    PIR_TRIGGER_COOLDOWN_SEC,
     SHUTDOWN_HOLD_TIME,
     WEB_HOST,
     WEB_PORT,
@@ -75,6 +76,7 @@ def main() -> None:
         toggle_pin=BUTTON_PIR_TOGGLE_PIN,
         audio_handler=audio_handler,
         speech_directory=speech_directory,
+        initial_cooldown_sec=PIR_TRIGGER_COOLDOWN_SEC,
     )
     web_handler = WebHandler(
         mode_manager,
